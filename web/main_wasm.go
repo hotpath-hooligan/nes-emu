@@ -30,6 +30,8 @@ var game *browserGame
 var loadROMFunction js.Func
 var unloadROMFunction js.Func
 var setAudioEnabledFunction js.Func
+var setControllerStateFunction js.Func
+var touchButtons [8]bool
 
 func main() {
 	game = &browserGame{
@@ -48,6 +50,8 @@ func main() {
 	js.Global().Set("unloadNESROM", unloadROMFunction)
 	setAudioEnabledFunction = js.FuncOf(setAudioEnabled)
 	js.Global().Set("setNESAudioEnabled", setAudioEnabledFunction)
+	setControllerStateFunction = js.FuncOf(setControllerState)
+	js.Global().Set("setNESControllerState", setControllerStateFunction)
 
 	ebiten.SetWindowTitle(windowTitle)
 	ebiten.SetTPS(ticksPerSecond)
@@ -108,6 +112,7 @@ func (g *browserGame) load(data []byte) (*nes.System, error) {
 
 func (g *browserGame) unload() {
 	g.system = nil
+	touchButtons = [8]bool{}
 	g.frame.Clear()
 	if g.audio != nil {
 		g.audio.Flush()
@@ -154,6 +159,18 @@ func setAudioEnabled(_ js.Value, args []js.Value) any {
 	return true
 }
 
+func setControllerState(_ js.Value, args []js.Value) any {
+	if len(args) != 1 || args[0].Type() != js.TypeNumber {
+		return false
+	}
+
+	mask := args[0].Int()
+	for button := range touchButtons {
+		touchButtons[button] = mask&(1<<button) != 0
+	}
+	return true
+}
+
 func loadResult(err error) map[string]any {
 	return map[string]any{
 		"ok":    false,
@@ -162,7 +179,7 @@ func loadResult(err error) map[string]any {
 }
 
 func readButtons() [8]bool {
-	return [8]bool{
+	buttons := [8]bool{
 		ebiten.IsKeyPressed(ebiten.KeyZ) || ebiten.IsKeyPressed(ebiten.KeySpace),
 		ebiten.IsKeyPressed(ebiten.KeyX),
 		ebiten.IsKeyPressed(ebiten.KeyShiftRight),
@@ -172,6 +189,10 @@ func readButtons() [8]bool {
 		ebiten.IsKeyPressed(ebiten.KeyArrowLeft),
 		ebiten.IsKeyPressed(ebiten.KeyArrowRight),
 	}
+	for button, pressed := range touchButtons {
+		buttons[button] = buttons[button] || pressed
+	}
+	return buttons
 }
 
 func reportRuntimeError(err error) {

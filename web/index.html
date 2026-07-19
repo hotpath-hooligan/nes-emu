@@ -86,8 +86,12 @@
     }
 
     body[data-running="true"] {
+      --control-deck-height: clamp(11rem, 25dvh, 14rem);
+      --game-area-height: calc(100dvh - var(--control-deck-height));
       overflow: hidden;
       background: #000;
+      overscroll-behavior: none;
+      touch-action: none;
     }
 
     body[data-running="true"]::before,
@@ -1305,6 +1309,13 @@
     }
 
     body[data-running="true"] canvas {
+      top: calc((var(--game-area-height) - min(var(--game-area-height), 93.75vw)) / 2) !important;
+      right: 0 !important;
+      bottom: auto !important;
+      left: 0 !important;
+      width: min(100vw, calc(var(--game-area-height) * 1.066667)) !important;
+      height: min(var(--game-area-height), 93.75vw) !important;
+      margin: 0 auto;
       visibility: visible;
       animation: screenOn 420ms cubic-bezier(0.2, 0.85, 0.3, 1) both;
     }
@@ -1312,7 +1323,13 @@
     body[data-running="true"][data-crt-effect="true"]::after {
       position: fixed;
       z-index: 2;
-      inset: 0;
+      top: calc((var(--game-area-height) - min(var(--game-area-height), 93.75vw)) / 2);
+      right: 0;
+      bottom: auto;
+      left: 0;
+      width: min(100vw, calc(var(--game-area-height) * 1.066667));
+      height: min(var(--game-area-height), 93.75vw);
+      margin: 0 auto;
       background:
         radial-gradient(ellipse at center, transparent 42%, rgb(0 0 0 / 48%) 100%),
         repeating-linear-gradient(0deg, rgb(0 0 0 / 26%) 0 1px, rgb(255 255 255 / 3%) 1px 2px, transparent 2px 4px),
@@ -1323,6 +1340,160 @@
       opacity: 1;
       pointer-events: none;
       animation: crtSettle 520ms ease-out both;
+    }
+
+    .game-controls {
+      position: fixed;
+      z-index: 4;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      display: none;
+      height: var(--control-deck-height);
+      padding: 0.75rem max(1rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+      border-top: 1px solid rgb(255 255 255 / 12%);
+      background:
+        linear-gradient(180deg, rgb(255 255 255 / 4%), transparent 28%),
+        radial-gradient(circle at 18% 35%, rgb(120 168 255 / 10%), transparent 25%),
+        radial-gradient(circle at 82% 35%, rgb(255 79 114 / 12%), transparent 25%),
+        #10121c;
+      box-shadow: 0 -1rem 2.5rem rgb(0 0 0 / 42%);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body[data-running="true"] .game-controls {
+      display: block;
+    }
+
+    .game-controls__inner {
+      display: grid;
+      width: min(100%, 52rem);
+      height: 100%;
+      margin: 0 auto;
+      grid-template-columns: minmax(7.5rem, 1fr) auto minmax(7.5rem, 1fr);
+      gap: clamp(0.75rem, 4vw, 2.5rem);
+      align-items: center;
+    }
+
+    .game-dpad {
+      position: relative;
+      width: min(9.5rem, 38vw, calc(var(--control-deck-height) - 2rem));
+      aspect-ratio: 1;
+      justify-self: start;
+      border-radius: 50%;
+      background: rgb(5 7 13 / 32%);
+      touch-action: none;
+    }
+
+    .game-dpad::after {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 29%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: #1b1e2a;
+      box-shadow: inset 0 1px rgb(255 255 255 / 8%);
+      content: "";
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .dpad-button {
+      position: absolute;
+      display: grid;
+      width: 34%;
+      height: 38%;
+      padding: 0;
+      border: 0;
+      border-radius: 0.5rem 0.5rem 0.2rem 0.2rem;
+      place-items: center;
+      background: linear-gradient(155deg, #353946, #222530 58%);
+      box-shadow: 0 0.3rem 0.55rem rgb(0 0 0 / 32%), inset 0 1px rgb(255 255 255 / 10%);
+      color: #777c8e;
+      font-size: clamp(0.75rem, 3vw, 1rem);
+      pointer-events: none;
+    }
+
+    .dpad-button[data-active="true"] {
+      background: linear-gradient(155deg, #4c5264, #292d3a 58%);
+      box-shadow: 0 0.1rem 0.25rem rgb(0 0 0 / 28%), inset 0 0 0 1px rgb(120 168 255 / 35%);
+      color: #bcd2ff;
+      filter: brightness(1.1);
+    }
+
+    .dpad-button--up { top: 0; left: 33%; }
+    .dpad-button--right { top: 31%; right: 0; transform: rotate(90deg); }
+    .dpad-button--down { bottom: 0; left: 33%; transform: rotate(180deg); }
+    .dpad-button--left { top: 31%; left: 0; transform: rotate(-90deg); }
+
+    .game-system-buttons {
+      display: flex;
+      gap: clamp(0.4rem, 1.5vw, 0.8rem);
+      align-items: center;
+      justify-content: center;
+      align-self: end;
+      padding-bottom: 0.35rem;
+    }
+
+    .game-system-button,
+    .game-power-button {
+      min-width: 3.35rem;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid rgb(255 255 255 / 13%);
+      border-radius: 999px;
+      background: linear-gradient(#303440, #1e212b);
+      box-shadow: 0 0.22rem 0.4rem rgb(0 0 0 / 32%);
+      color: #b6b9c6;
+      font: 800 0.58rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      touch-action: none;
+    }
+
+    .game-system-button[data-active="true"],
+    .game-system-button:active,
+    .game-power-button:active {
+      box-shadow: inset 0 0.12rem 0.35rem rgb(0 0 0 / 45%);
+      color: #fff;
+      transform: translateY(2px);
+    }
+
+    .game-power-button {
+      min-width: auto;
+      border-color: rgb(255 79 114 / 30%);
+      color: var(--accent-light);
+    }
+
+    .game-action-buttons {
+      display: flex;
+      gap: clamp(0.75rem, 3vw, 1.35rem);
+      align-items: center;
+      justify-self: end;
+      transform: rotate(-9deg);
+    }
+
+    .game-action-button {
+      display: grid;
+      width: min(4.75rem, 17vw, calc(var(--control-deck-height) * 0.37));
+      aspect-ratio: 1;
+      padding: 0;
+      border: clamp(0.28rem, 1vw, 0.42rem) solid #292c3a;
+      border-radius: 50%;
+      place-items: center;
+      background: linear-gradient(145deg, #ff7891, #dc3658 62%);
+      box-shadow: 0 0.45rem 0.8rem rgb(0 0 0 / 35%), 0 0.3rem 1rem rgb(255 79 114 / 22%), inset 0 2px rgb(255 255 255 / 22%);
+      color: #360a14;
+      font: 950 clamp(0.9rem, 4vw, 1.3rem)/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      touch-action: none;
+    }
+
+    .game-action-button[data-active="true"],
+    .game-action-button:active {
+      filter: brightness(1.15);
+      box-shadow: 0 0.12rem 0.35rem rgb(0 0 0 / 42%), 0 0 1.2rem rgb(255 79 114 / 35%);
+      transform: translateY(3px) scale(0.97);
     }
 
     @keyframes screenOn {
@@ -1362,6 +1533,24 @@
     }
 
     @media (max-width: 31rem) {
+      body[data-running="true"] {
+        --control-deck-height: min(15rem, 34dvh);
+      }
+
+      .game-controls__inner {
+        grid-template-columns: minmax(7rem, 1fr) auto minmax(7rem, 1fr);
+        gap: 0.65rem;
+      }
+
+      .game-system-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .game-power-button {
+        grid-column: 1 / -1;
+      }
+
       .rom-grid {
         grid-template-columns: 1fr;
       }
@@ -1386,6 +1575,20 @@
 
       .surprise-button span:last-child {
         display: none;
+      }
+    }
+
+    @media (max-height: 31rem) {
+      body[data-running="true"] {
+        --control-deck-height: min(10rem, 42dvh);
+      }
+
+      .game-controls {
+        padding-top: 0.4rem;
+      }
+
+      .game-system-buttons {
+        padding-bottom: 0;
       }
     }
 
@@ -1544,6 +1747,28 @@
 
   <output id="fps-counter" aria-label="Rendering and emulation speed">-- FPS · -- TPS</output>
 
+  <section class="game-controls" id="game-controls" aria-label="On-screen game controls">
+    <div class="game-controls__inner">
+      <div class="game-dpad" id="game-dpad" role="group" aria-label="Directional pad">
+        <button class="dpad-button dpad-button--up" data-nes-button="16" type="button" tabindex="-1" aria-label="Up">▲</button>
+        <button class="dpad-button dpad-button--right" data-nes-button="128" type="button" tabindex="-1" aria-label="Right">▲</button>
+        <button class="dpad-button dpad-button--down" data-nes-button="32" type="button" tabindex="-1" aria-label="Down">▲</button>
+        <button class="dpad-button dpad-button--left" data-nes-button="64" type="button" tabindex="-1" aria-label="Left">▲</button>
+      </div>
+
+      <div class="game-system-buttons">
+        <button class="game-system-button" data-nes-button="4" type="button">Select</button>
+        <button class="game-system-button" data-nes-button="8" type="button">Start</button>
+        <button class="game-power-button" id="game-power-button" type="button">Exit</button>
+      </div>
+
+      <div class="game-action-buttons" aria-label="Action buttons">
+        <button class="game-action-button" data-nes-button="2" type="button" aria-label="B button">B</button>
+        <button class="game-action-button" data-nes-button="1" type="button" aria-label="A button">A</button>
+      </div>
+    </div>
+  </section>
+
   <script src="wasm_exec.js"></script>
   <script>
     const picker = document.querySelector("#rom-picker");
@@ -1568,6 +1793,9 @@
     const lastSession = document.querySelector("#last-session");
     const lastGame = document.querySelector("#last-game");
     const lastDuration = document.querySelector("#last-duration");
+    const gameControls = document.querySelector("#game-controls");
+    const gameDpad = document.querySelector("#game-dpad");
+    const gamePowerButton = document.querySelector("#game-power-button");
     const gamesPerPage = 6;
     const cartridgeColors = ["#ff4f72", "#78a8ff", "#ffc96b", "#8be0b8", "#b48cff", "#ff8f5f"];
     const controlForCode = {
@@ -1595,6 +1823,7 @@
     let sessionCheckpoint;
     let lastSessionData;
     const pressedCodes = new Set();
+    const activeControlPointers = new Map();
 
     try {
       const savedAudioSetting = localStorage.getItem("gones-audio") ?? localStorage.getItem("gones-menu-sound");
@@ -1740,6 +1969,82 @@
       if (controlElement) controlElement.dataset.active = String(controlActive);
     }
 
+    function publishControllerState() {
+      let mask = 0;
+      activeControlPointers.forEach((buttons) => { mask |= buttons; });
+      gameControls.querySelectorAll("[data-nes-button]").forEach((button) => {
+        const buttonMask = Number(button.dataset.nesButton);
+        button.dataset.active = String((mask & buttonMask) !== 0);
+      });
+      if (typeof window.setNESControllerState === "function") {
+        window.setNESControllerState(mask);
+      }
+    }
+
+    function setControlPointerState(pointerId, mask) {
+      activeControlPointers.set(pointerId, mask);
+      publishControllerState();
+    }
+
+    function releaseControlPointer(pointerId) {
+      if (!activeControlPointers.delete(pointerId)) return;
+      publishControllerState();
+    }
+
+    function clearOnScreenControls() {
+      activeControlPointers.clear();
+      publishControllerState();
+    }
+
+    function isControlPointer(event) {
+      return event.pointerType !== "mouse" || event.button === 0;
+    }
+
+    function dpadMaskAt(clientX, clientY) {
+      const bounds = gameDpad.getBoundingClientRect();
+      const x = (clientX - bounds.left - bounds.width / 2) / (bounds.width / 2);
+      const y = (clientY - bounds.top - bounds.height / 2) / (bounds.height / 2);
+      const deadZone = 0.18;
+      let mask = 0;
+      if (x < -deadZone) mask |= 64;
+      if (x > deadZone) mask |= 128;
+      if (y < -deadZone) mask |= 16;
+      if (y > deadZone) mask |= 32;
+      return mask;
+    }
+
+    gameDpad.addEventListener("pointerdown", (event) => {
+      if (!isControlPointer(event) || document.body.dataset.running !== "true") return;
+      event.preventDefault();
+      gameDpad.setPointerCapture(event.pointerId);
+      setControlPointerState(event.pointerId, dpadMaskAt(event.clientX, event.clientY));
+    });
+
+    gameDpad.addEventListener("pointermove", (event) => {
+      if (!activeControlPointers.has(event.pointerId)) return;
+      event.preventDefault();
+      setControlPointerState(event.pointerId, dpadMaskAt(event.clientX, event.clientY));
+    });
+
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach((eventName) => {
+      gameDpad.addEventListener(eventName, (event) => releaseControlPointer(event.pointerId));
+    });
+
+    gameControls.querySelectorAll(".game-system-button[data-nes-button], .game-action-button[data-nes-button]").forEach((button) => {
+      button.addEventListener("pointerdown", (event) => {
+        if (!isControlPointer(event) || document.body.dataset.running !== "true") return;
+        event.preventDefault();
+        button.setPointerCapture(event.pointerId);
+        setControlPointerState(event.pointerId, Number(button.dataset.nesButton));
+      });
+      ["pointerup", "pointercancel", "lostpointercapture"].forEach((eventName) => {
+        button.addEventListener(eventName, (event) => releaseControlPointer(event.pointerId));
+      });
+    });
+
+    gameControls.addEventListener("contextmenu", (event) => event.preventDefault());
+    gamePowerButton.addEventListener("click", stopROM);
+
     updateSoundToggle();
     updateDisplayToggles();
     applyDisplaySettings();
@@ -1775,6 +2080,7 @@
     function stopROM() {
       if (document.body.dataset.running !== "true") return;
 
+      clearOnScreenControls();
       finishSession();
       window.unloadNESROM();
       delete document.body.dataset.running;
@@ -1785,6 +2091,7 @@
     }
 
     async function playROM(bytes, name) {
+      clearOnScreenControls();
       setLoadersDisabled(true);
       setStatus(`Loading ${name}…`);
 
@@ -2025,11 +2332,15 @@
         pressedCodes.delete(code);
         setKeyState(code, false);
       });
+      clearOnScreenControls();
     });
 
     window.addEventListener("pagehide", saveCurrentSession);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") saveCurrentSession();
+      if (document.visibilityState === "hidden") {
+        saveCurrentSession();
+        clearOnScreenControls();
+      }
     });
 
     async function start() {
