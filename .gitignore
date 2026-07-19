@@ -7,6 +7,8 @@ gonesemu
 # ROM files
 *.nes
 roms/
+!/roms/
+!/roms/*.nes
 
 # Local reference source
 /NES-reference-material/

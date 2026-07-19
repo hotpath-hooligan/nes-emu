@@ -38,7 +38,7 @@ make serve
 
 Open `http://localhost:8080`, select a bundled game or choose a legally obtained `.nes` file from your device, and click the game canvas. The ROM stays in the browser.
 
-Every `.nes` file directly inside `roms/` is copied into the generated bundle and listed in the launcher automatically. Filenames such as `Mega Man 2 (USA).nes` are cleaned up for display without renaming the source files. ROM files are ignored by Git; supply your own legally obtained cartridge dumps.
+Every tracked `.nes` file directly inside `roms/` is copied into the generated bundle and listed in the launcher automatically. Filenames such as `Mega Man 2 (USA).nes` are cleaned up for display without renaming the source files. A deployed ROM is publicly downloadable, so only commit files you have the right to distribute.
 
 ## Controls
 
@@ -72,7 +72,7 @@ go-nes/
 │   ├── index.html       # Browser interface and WASM bootstrap
 │   ├── main_wasm.go     # Browser game loop, rendering, and input
 │   └── audio_wasm.go    # Browser audio output
-├── roms/               # Local, Git-ignored cartridge dumps
+├── roms/               # Cartridge files bundled into the deployment
 ├── tools/romcatalog/    # Bundled-ROM copier and catalog generator
 ├── dist/                # Generated deployable files only
 ├── Makefile             # Browser build and local server commands
@@ -113,4 +113,4 @@ PAL timing, some advanced mapper features, and browser save states are not yet s
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
-Only use homebrew or public-domain ROMs, or personal cartridge backups made and used in accordance with applicable law. Commercial ROMs are not tracked by this repository.
+Only publish ROMs you have the right to distribute. For local play, use homebrew or public-domain ROMs, or personal cartridge backups made and used in accordance with applicable law.
