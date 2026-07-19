@@ -3,7 +3,6 @@ package nes
 import "image"
 
 type PPU struct {
-	Memory
 	system *System
 
 	Cycle    int
@@ -66,11 +65,40 @@ type PPU struct {
 }
 
 func NewPPU(sys *System) *PPU {
-	ppu := PPU{Memory: NewPPUMemory(sys), system: sys}
+	ppu := PPU{system: sys}
 	ppu.front = image.NewRGBA(image.Rect(0, 0, 256, 240))
 	ppu.back = image.NewRGBA(image.Rect(0, 0, 256, 240))
 	ppu.Reset()
 	return &ppu
+}
+
+// Read/Write are inlined here (rather than routed through a Memory interface)
+// so the per-cycle PPU fetches avoid an interface dispatch on every access.
+func (ppu *PPU) Read(address uint16) byte {
+	address &= 0x3FFF
+	switch {
+	case address < 0x2000:
+		return ppu.system.Mapper.Read(address)
+	case address < 0x3F00:
+		mode := ppu.system.Cartridge.Mirror
+		return ppu.nameTableData[MirrorAddress(mode, address)&0x07FF]
+	case address < 0x4000:
+		return ppu.readPalette(address & 0x1F)
+	}
+	return 0
+}
+
+func (ppu *PPU) Write(address uint16, value byte) {
+	address &= 0x3FFF
+	switch {
+	case address < 0x2000:
+		ppu.system.Mapper.Write(address, value)
+	case address < 0x3F00:
+		mode := ppu.system.Cartridge.Mirror
+		ppu.nameTableData[MirrorAddress(mode, address)&0x07FF] = value
+	case address < 0x4000:
+		ppu.writePalette(address&0x1F, value)
+	}
 }
 
 func (ppu *PPU) Reset() {

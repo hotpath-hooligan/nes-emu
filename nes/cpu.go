@@ -103,7 +103,7 @@ var instructionPageCycles = [256]byte{
 }
 
 type CPU struct {
-	Memory
+	sys       *System
 	Cycles    uint64
 	PC        uint16
 	SP        byte
@@ -125,10 +125,54 @@ type CPU struct {
 }
 
 func NewCPU(sys *System) *CPU {
-	cpu := CPU{Memory: NewCPUMemory(sys)}
+	cpu := CPU{sys: sys}
 	cpu.createTable()
 	cpu.Reset()
 	return &cpu
+}
+
+// Read is inlined here (rather than routed through a Memory interface) so the
+// per-instruction hot path avoids an interface dispatch on every CPU read.
+func (cpu *CPU) Read(address uint16) byte {
+	switch {
+	case address < 0x2000:
+		return cpu.sys.RAM[address&0x07FF]
+	case address < 0x4000:
+		return cpu.sys.PPU.readRegister(0x2000 | (address & 7))
+	case address == 0x4014:
+		return cpu.sys.PPU.readRegister(address)
+	case address == 0x4015:
+		return cpu.sys.APU.readRegister(address)
+	case address == 0x4016:
+		return cpu.sys.Controller1.Read()
+	case address == 0x4017:
+		return cpu.sys.Controller2.Read()
+	case address >= 0x6000:
+		return cpu.sys.Mapper.Read(address)
+	}
+	return 0
+}
+
+func (cpu *CPU) Write(address uint16, value byte) {
+	switch {
+	case address < 0x2000:
+		cpu.sys.RAM[address&0x07FF] = value
+	case address < 0x4000:
+		cpu.sys.PPU.writeRegister(0x2000|(address&7), value)
+	case address < 0x4014:
+		cpu.sys.APU.writeRegister(address, value)
+	case address == 0x4014:
+		cpu.sys.PPU.writeRegister(address, value)
+	case address == 0x4015:
+		cpu.sys.APU.writeRegister(address, value)
+	case address == 0x4016:
+		cpu.sys.Controller1.Write(value)
+		cpu.sys.Controller2.Write(value)
+	case address == 0x4017:
+		cpu.sys.APU.writeRegister(address, value)
+	case address >= 0x6000:
+		cpu.sys.Mapper.Write(address, value)
+	}
 }
 
 func (c *CPU) createTable() {
