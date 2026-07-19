@@ -130,8 +130,16 @@ func (sys *System) SetAudioChannel(ch chan float32) {
 func (sys *System) SetAudioSampleRate(sampleRate float64) {
 	if sampleRate != 0 {
 		sys.APU.sampleRate = CPUFrequency / sampleRate
+		// Fixed-point accumulator so APU.Step() avoids float division in the
+		// per-cycle hot path. Scale preserves fractional sample rates.
+		const scale = 1 << 20
+		sys.APU.sampleIncrement = uint64(sampleRate * scale)
+		sys.APU.samplePeriod = uint64(CPUFrequency) * scale
+		sys.APU.sampleAccum = 0
 		sys.initializeAudioFilters(sampleRate)
 	} else {
+		sys.APU.sampleIncrement = 0
+		sys.APU.samplePeriod = 0
 		sys.APU.filterChain = nil
 	}
 }

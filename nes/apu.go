@@ -1,6 +1,14 @@
 package nes
 
-const frameCounterRate = CPUFrequency / 240.0
+// Frame counter fires 240 times per second; each period is CPUFrequency/240
+// CPU cycles. We accumulate with a fixed-point scaler so the check is integer
+// only (no float64 division in the per-cycle hot path).
+const (
+	frameCounterRate      = CPUFrequency / 240.0
+	frameCounterScale     = 1 << 20
+	frameCounterIncrement = uint64(240 * frameCounterScale)
+	frameCounterPeriod    = uint64(CPUFrequency) * frameCounterScale
+)
 
 var lengthTable = []byte{
 	10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14,
@@ -55,6 +63,11 @@ type APU struct {
 	frameValue  byte
 	frameIRQ    bool
 	filterChain FilterChain
+
+	frameCounterAccum uint64
+	sampleAccum       uint64
+	sampleIncrement   uint64 // added per CPU cycle; 0 means audio disabled
+	samplePeriod      uint64 // threshold; fires when accumulator reaches it
 }
 
 func NewAPU(sys *System) *APU {
@@ -69,19 +82,21 @@ func NewAPU(sys *System) *APU {
 }
 
 func (apu *APU) Step() {
-	cycle1 := apu.cycle
 	apu.cycle++
-	cycle2 := apu.cycle
 	apu.stepTimer()
-	f1 := int(float64(cycle1) / frameCounterRate)
-	f2 := int(float64(cycle2) / frameCounterRate)
-	if f1 != f2 {
+
+	apu.frameCounterAccum += frameCounterIncrement
+	if apu.frameCounterAccum >= frameCounterPeriod {
+		apu.frameCounterAccum -= frameCounterPeriod
 		apu.stepFrameCounter()
 	}
-	s1 := int(float64(cycle1) / apu.sampleRate)
-	s2 := int(float64(cycle2) / apu.sampleRate)
-	if s1 != s2 {
-		apu.sendSample()
+
+	if apu.sampleIncrement != 0 {
+		apu.sampleAccum += apu.sampleIncrement
+		if apu.sampleAccum >= apu.samplePeriod {
+			apu.sampleAccum -= apu.samplePeriod
+			apu.sendSample()
+		}
 	}
 }
 
