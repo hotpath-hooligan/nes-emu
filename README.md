@@ -2,6 +2,8 @@
 
 A Nintendo Entertainment System emulator written in Go and delivered to browsers through WebAssembly.
 
+**[Play GoNES in your browser](https://hotpath-hooligan.github.io/nes-emu/)**
+
 ## Screenshots
 
 <p align="center">
@@ -12,12 +14,28 @@ A Nintendo Entertainment System emulator written in Go and delivered to browsers
 
 ## Features
 
-- 6502 CPU, PPU, APU, memory, and controller emulation
-- Browser rendering and keyboard input through Ebitengine
-- Pixel-perfect nearest-neighbor scaling
-- Automatically generated bundled-ROM library
-- Local ROM selection without uploading ROM data
-- Mapper 0, 1, 2, 3, 7, and 11 support
+- Complete emulation path for the MOS 6502 CPU, PPU graphics, five-channel APU audio, memory, cartridges, and controllers
+- Runs entirely in the browser as WebAssembly; locally selected ROMs stay on your device
+- Ebitengine-powered 60 Hz game loop, rendering, keyboard/touch input, and audio output
+- Crisp nearest-neighbor scaling from the NES's native 256 × 240 resolution
+- Optional vintage CRT display with scanlines, a subtle color mask, increased contrast, and a screen-edge vignette
+- Responsive on-screen controls and an optional FPS/TPS performance overlay
+- Automatically generated launcher for bundled ROMs
+
+## Cartridge mapper support
+
+NES cartridges use mapper hardware to bank-switch program and graphics data beyond the console's directly addressable memory. GoNES currently implements six commonly used mapper families:
+
+| Mapper | Board family | What it provides |
+| --- | --- | --- |
+| 0 | NROM | The original fixed 16 KB or 32 KB program-ROM layout |
+| 1 | MMC1 | Configurable program/graphics banking and mirroring |
+| 2 | UxROM | A switchable 16 KB program bank alongside a fixed bank |
+| 3 | CNROM | Switchable graphics-ROM banks |
+| 7 | AxROM | Switchable 32 KB program banks with one-screen mirroring |
+| 11 | Color Dreams | Combined program-ROM and graphics-ROM bank switching |
+
+Mapper support describes the cartridge hardware GoNES understands. Individual games can still depend on timing behavior or board variants that are not fully emulated yet.
 
 ## Run in a browser
 
@@ -29,8 +47,8 @@ Prerequisites:
 Build the WebAssembly module and start the local server:
 
 ```bash
-git clone https://github.com/akap-hub/go-nes.git
-cd go-nes
+git clone https://github.com/hotpath-hooligan/nes-emu.git
+cd nes-emu
 mkdir -p roms
 # Add your legally obtained .nes cartridge dumps to roms/
 make serve
@@ -66,7 +84,7 @@ make help                          # List available commands
 ## Project structure
 
 ```text
-go-nes/
+nes-emu/
 ├── nes/                 # Platform-neutral emulator core
 ├── web/
 │   ├── index.html       # Browser interface and WASM bootstrap
@@ -94,12 +112,6 @@ go-nes/
 
 Go source, native OpenGL/PortAudio code, screenshots, documentation, and reference material are not copied to `dist/`. The build strips debug symbols and local paths, reports raw and gzip sizes, and fails if compressed WASM grows beyond 3 MB. Production hosting should enable gzip or Brotli for `.wasm` and `.js` responses.
 
-## GitHub Pages deployment
-
-Every push to `master` builds `dist/` and deploys it through the `github-pages` environment. The workflow can also be run manually from the Actions tab.
-
-Before the first deployment, set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. No deployment branch or committed build output is required.
-
 ## Technical details
 
 - CPU: MOS 6502 at 1.79 MHz (NTSC)
@@ -108,7 +120,14 @@ Before the first deployment, set **Settings → Pages → Build and deployment �
 - Audio core: five NES channels at 44.1 kHz
 - Rendering: Ebitengine compiled for `js/wasm`
 
-PAL timing, some advanced mapper features, and browser save states are not yet supported.
+PAL timing and some advanced mapper behaviors are not yet supported.
+
+## Roadmap
+
+- Add more cartridge mappers to expand game compatibility
+- Improve audio timing and buffering to eliminate intermittent chopping and dropouts
+- Add save-state and load-state support so a game can be resumed in the browser
+- Continue improving timing accuracy and compatibility across the CPU, PPU, and APU
 
 ## License
 
