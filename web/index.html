@@ -87,12 +87,8 @@
     }
 
     body[data-running="true"] {
-      --control-deck-height: clamp(11rem, 25dvh, 14rem);
-      --game-area-height: calc(100dvh - var(--control-deck-height));
       overflow: hidden;
       background: #000;
-      overscroll-behavior: none;
-      touch-action: none;
     }
 
     body[data-running="true"]::before,
@@ -1310,13 +1306,6 @@
     }
 
     body[data-running="true"] canvas {
-      top: calc((var(--game-area-height) - min(var(--game-area-height), 93.75vw)) / 2) !important;
-      right: 0 !important;
-      bottom: auto !important;
-      left: 0 !important;
-      width: min(100vw, calc(var(--game-area-height) * 1.066667)) !important;
-      height: min(var(--game-area-height), 93.75vw) !important;
-      margin: 0 auto !important;
       visibility: visible;
       animation: screenOn 420ms cubic-bezier(0.2, 0.85, 0.3, 1) both;
     }
@@ -1324,13 +1313,7 @@
     body[data-running="true"][data-crt-effect="true"]::after {
       position: fixed;
       z-index: 2;
-      top: calc((var(--game-area-height) - min(var(--game-area-height), 93.75vw)) / 2);
-      right: 0;
-      bottom: auto;
-      left: 0;
-      width: min(100vw, calc(var(--game-area-height) * 1.066667));
-      height: min(var(--game-area-height), 93.75vw);
-      margin: 0 auto;
+      inset: 0;
       background:
         radial-gradient(ellipse at center, transparent 42%, rgb(0 0 0 / 48%) 100%),
         repeating-linear-gradient(0deg, rgb(0 0 0 / 26%) 0 1px, rgb(255 255 255 / 3%) 1px 2px, transparent 2px 4px),
@@ -1361,10 +1344,6 @@
       box-shadow: 0 -1rem 2.5rem rgb(0 0 0 / 42%);
       user-select: none;
       -webkit-user-select: none;
-    }
-
-    body[data-running="true"] .game-controls {
-      display: block;
     }
 
     .game-controls__inner {
@@ -1497,6 +1476,42 @@
       transform: translateY(3px) scale(0.97);
     }
 
+    @media (hover: none) and (pointer: coarse) {
+      body[data-running="true"] {
+        --control-deck-height: clamp(11rem, 25dvh, 14rem);
+        --game-area-height: calc(100dvh - var(--control-deck-height));
+        width: min(100vw, calc(var(--game-area-height) * 1.066667));
+        height: min(var(--game-area-height), 93.75vw) !important;
+        min-height: 0;
+        overscroll-behavior: none;
+        touch-action: none;
+      }
+
+      body[data-running="true"] canvas {
+        top: calc((var(--game-area-height) - min(var(--game-area-height), 93.75vw)) / 2) !important;
+        right: 0 !important;
+        bottom: auto !important;
+        left: 0 !important;
+        width: min(100vw, calc(var(--game-area-height) * 1.066667)) !important;
+        height: min(var(--game-area-height), 93.75vw) !important;
+        margin: 0 auto !important;
+      }
+
+      body[data-running="true"][data-crt-effect="true"]::after {
+        top: calc((var(--game-area-height) - min(var(--game-area-height), 93.75vw)) / 2);
+        right: 0;
+        bottom: auto;
+        left: 0;
+        width: min(100vw, calc(var(--game-area-height) * 1.066667));
+        height: min(var(--game-area-height), 93.75vw);
+        margin: 0 auto;
+      }
+
+      body[data-running="true"] .game-controls {
+        display: block;
+      }
+    }
+
     @keyframes screenOn {
       0% { filter: brightness(8) saturate(0); transform: scaleY(0.008) scaleX(0.7); }
       45% { filter: brightness(2) saturate(0.65); transform: scaleY(0.025) scaleX(1); }
@@ -1533,7 +1548,7 @@
       }
     }
 
-    @media (max-width: 31rem) {
+    @media (hover: none) and (pointer: coarse) and (max-width: 31rem) {
       body[data-running="true"] {
         --control-deck-height: min(15rem, 34dvh);
       }
@@ -1551,6 +1566,9 @@
       .game-power-button {
         grid-column: 1 / -1;
       }
+    }
+
+    @media (max-width: 31rem) {
 
       .rom-grid {
         grid-template-columns: 1fr;
@@ -1579,7 +1597,7 @@
       }
     }
 
-    @media (max-height: 31rem) {
+    @media (hover: none) and (pointer: coarse) and (max-height: 31rem) {
       body[data-running="true"] {
         --control-deck-height: min(10rem, 42dvh);
       }
@@ -2088,7 +2106,10 @@
       fpsCounter.textContent = "-- FPS · -- TPS";
       setStatus("Game powered off. Choose a ROM to play.");
       playMenuSound("powerOff");
-      requestAnimationFrame(() => lastLauncher.focus());
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new Event("resize"));
+        lastLauncher.focus();
+      });
     }
 
     async function playROM(bytes, name) {
@@ -2104,7 +2125,10 @@
         playMenuSound("start");
         beginSession(name);
         document.body.dataset.running = "true";
-        requestAnimationFrame(() => document.querySelector("canvas")?.focus());
+        requestAnimationFrame(() => {
+          window.dispatchEvent(new Event("resize"));
+          document.querySelector("canvas")?.focus();
+        });
       } catch (error) {
         setStatus(`Could not load ROM: ${error.message}`, "error");
       } finally {
