@@ -86,6 +86,7 @@ go-nes/
 | File | When downloaded | Purpose |
 | --- | --- | --- |
 | `index.html` | Initial page | Inline UI, styles, and bootstrap code |
+| `favicon.svg` | Initial page | NES controller tab icon |
 | `wasm_exec.js` | Initial page | Go's required browser runtime |
 | `main.wasm` | Initial page | Emulator core, Ebitengine browser runtime, rendering, input, and audio code |
 | `roms/catalog.json` | Initial page | Generated list of bundled games |

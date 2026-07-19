@@ -13,6 +13,7 @@ build: clean
 	if [ ! -f "$$WASM_EXEC" ]; then WASM_EXEC="$$($(GO) env GOROOT)/misc/wasm/wasm_exec.js"; fi; \
 	cp "$$WASM_EXEC" $(DIST_DIR)/wasm_exec.js
 	cp web/index.html $(DIST_DIR)/index.html
+	cp web/favicon.svg $(DIST_DIR)/favicon.svg
 	$(GO) run ./tools/romcatalog "$(ROM_DIR)" "$(DIST_DIR)/roms"
 	@RAW_BYTES="$$(wc -c < $(DIST_DIR)/main.wasm)"; \
 	GZIP_BYTES="$$(gzip -9 -c $(DIST_DIR)/main.wasm | wc -c)"; \
