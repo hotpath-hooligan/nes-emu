@@ -24,6 +24,7 @@ type browserGame struct {
 	frame         *ebiten.Image
 	audio         *audioOutput
 	nextFPSUpdate time.Time
+	pendingFrame  bool
 }
 
 var game *browserGame
@@ -55,6 +56,9 @@ func main() {
 
 	ebiten.SetWindowTitle(windowTitle)
 	ebiten.SetTPS(ticksPerSecond)
+	// Suspend audio while the tab is hidden or unfocused. Ebiten already polls for
+	// this, but only acts on it when the game is not runnable while unfocused.
+	ebiten.SetRunnableOnUnfocused(false)
 	if err := ebiten.RunGame(game); err != nil {
 		reportRuntimeError(err)
 	}
@@ -67,6 +71,7 @@ func (g *browserGame) Update() error {
 
 	g.system.SetButtons1(readButtons())
 	g.system.StepSeconds(1.0 / ticksPerSecond)
+	g.pendingFrame = true
 	return nil
 }
 
@@ -75,7 +80,13 @@ func (g *browserGame) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	g.frame.WritePixels(g.system.Buffer().Pix)
+	// Draw runs once per animation frame, which outpaces the 60 Hz tick rate on
+	// high-refresh displays. Without a new tick the buffer is unchanged, so reuse
+	// the pixels already uploaded to g.frame rather than sending them again.
+	if g.pendingFrame {
+		g.pendingFrame = false
+		g.frame.WritePixels(g.system.Buffer().Pix)
+	}
 	screen.DrawImage(g.frame, nil)
 
 	now := time.Now()
@@ -113,6 +124,7 @@ func (g *browserGame) load(data []byte) (*nes.System, error) {
 func (g *browserGame) unload() {
 	g.system = nil
 	touchButtons = [8]bool{}
+	g.pendingFrame = false
 	g.frame.Clear()
 	if g.audio != nil {
 		g.audio.Flush()
