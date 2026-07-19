@@ -1,6 +1,16 @@
 package nes
 
-import "image"
+import (
+	"image"
+	"unsafe"
+)
+
+// pixWords views an RGBA pixel buffer as 32-bit words. The NES targets (amd64
+// and wasm) are little-endian and image.NewRGBA's allocation is word aligned,
+// so one store per pixel replaces four bounds-checked byte stores.
+func pixWords(img *image.RGBA) []uint32 {
+	return unsafe.Slice((*uint32)(unsafe.Pointer(&img.Pix[0])), len(img.Pix)/4)
+}
 
 type PPU struct {
 	system *System
@@ -14,6 +24,7 @@ type PPU struct {
 	oamData       [256]byte
 	front         *image.RGBA
 	back          *image.RGBA
+	backPix       []uint32 // 32-bit view of back.Pix, one word per pixel
 
 	v uint16
 	t uint16
@@ -68,6 +79,7 @@ func NewPPU(sys *System) *PPU {
 	ppu := PPU{system: sys}
 	ppu.front = image.NewRGBA(image.Rect(0, 0, 256, 240))
 	ppu.back = image.NewRGBA(image.Rect(0, 0, 256, 240))
+	ppu.backPix = pixWords(ppu.back)
 	ppu.Reset()
 	return &ppu
 }
@@ -80,8 +92,7 @@ func (ppu *PPU) Read(address uint16) byte {
 	case address < 0x2000:
 		return ppu.system.Mapper.Read(address)
 	case address < 0x3F00:
-		mode := ppu.system.Cartridge.Mirror
-		return ppu.nameTableData[MirrorAddress(mode, address)&0x07FF]
+		return ppu.nameTableData[MirrorAddress(ppu.system.Cartridge.Mirror, address)&0x07FF]
 	case address < 0x4000:
 		return ppu.readPalette(address & 0x1F)
 	}
@@ -94,8 +105,7 @@ func (ppu *PPU) Write(address uint16, value byte) {
 	case address < 0x2000:
 		ppu.system.Mapper.Write(address, value)
 	case address < 0x3F00:
-		mode := ppu.system.Cartridge.Mirror
-		ppu.nameTableData[MirrorAddress(mode, address)&0x07FF] = value
+		ppu.nameTableData[MirrorAddress(ppu.system.Cartridge.Mirror, address)&0x07FF] = value
 	case address < 0x4000:
 		ppu.writePalette(address&0x1F, value)
 	}
@@ -282,82 +292,91 @@ func (ppu *PPU) nmiChange() {
 	ppu.nmiPrevious = nmi
 }
 
+// Step is called three times per CPU cycle, so it is structured to reach a
+// return as cheaply as possible: the counters advance, then the vblank and
+// rendering-disabled cases bail out before any per-cycle flags are computed.
 func (ppu *PPU) Step() {
+	if ppu.nmiDelay > 0 {
+		ppu.stepNMIDelay()
+	}
 	ppu.tick()
 
-	renderingEnabled := ppu.flagShowBackground != 0 || ppu.flagShowSprites != 0
-	preLine := ppu.ScanLine == 261
-	visibleLine := ppu.ScanLine < 240
-	renderLine := preLine || visibleLine
-	preFetchCycle := ppu.Cycle >= 321 && ppu.Cycle <= 336
-	visibleCycle := ppu.Cycle >= 1 && ppu.Cycle <= 256
-	fetchCycle := preFetchCycle || visibleCycle
+	scanLine := ppu.ScanLine
+	cycle := ppu.Cycle
 
-	if renderingEnabled {
-		if visibleLine && visibleCycle {
-			ppu.renderPixel()
+	preLine := scanLine == 261
+	if !preLine && scanLine >= 240 {
+		// Post-render line and vblank: nothing is fetched or drawn.
+		if scanLine == 241 && cycle == 1 {
+			ppu.setVerticalBlank()
 		}
-		if renderLine && fetchCycle {
-			ppu.tileData <<= 4
-			switch ppu.Cycle % 8 {
-			case 1:
-				ppu.fetchNameTableByte()
-			case 3:
-				ppu.fetchAttributeTableByte()
-			case 5:
-				ppu.fetchLowTileByte()
-			case 7:
-				ppu.fetchHighTileByte()
-			case 0:
-				ppu.storeTileData()
-			}
-		}
-		if preLine && ppu.Cycle >= 280 && ppu.Cycle <= 304 {
-			ppu.copyY()
-		}
-		if renderLine {
-			if fetchCycle && ppu.Cycle%8 == 0 {
-				ppu.incrementX()
-			}
-			if ppu.Cycle == 256 {
-				ppu.incrementY()
-			}
-			if ppu.Cycle == 257 {
-				ppu.copyX()
-			}
-		}
+		return
 	}
 
-	if renderingEnabled && visibleLine && ppu.Cycle == 257 {
-		ppu.evaluateSprites()
-	}
-
-	if ppu.ScanLine == 241 && ppu.Cycle == 1 {
-		ppu.setVerticalBlank()
-	}
-	if preLine && ppu.Cycle == 1 {
+	if preLine && cycle == 1 {
 		ppu.clearVerticalBlank()
 		ppu.flagSpriteZeroHit = 0
 		ppu.flagSpriteOverflow = 0
 	}
+
+	if ppu.flagShowBackground == 0 && ppu.flagShowSprites == 0 {
+		return
+	}
+
+	visibleCycle := cycle >= 1 && cycle <= 256
+	if visibleCycle && !preLine {
+		ppu.renderPixel()
+	}
+
+	if visibleCycle || (cycle >= 321 && cycle <= 336) {
+		ppu.tileData <<= 4
+		switch cycle & 7 {
+		case 1:
+			ppu.fetchNameTableByte()
+		case 3:
+			ppu.fetchAttributeTableByte()
+		case 5:
+			ppu.fetchLowTileByte()
+		case 7:
+			ppu.fetchHighTileByte()
+		case 0:
+			ppu.storeTileData()
+			ppu.incrementX()
+			if cycle == 256 {
+				ppu.incrementY()
+			}
+		}
+		return
+	}
+
+	switch {
+	case cycle == 257:
+		ppu.copyX()
+		if !preLine {
+			ppu.evaluateSprites()
+		}
+	case preLine && cycle >= 280 && cycle <= 304:
+		ppu.copyY()
+	}
+}
+
+// stepNMIDelay is split out of Step so the (almost always false) delay check
+// stays a single compare on the hot path.
+func (ppu *PPU) stepNMIDelay() {
+	ppu.nmiDelay--
+	if ppu.nmiDelay == 0 && ppu.nmiOutput && ppu.nmiOccurred {
+		ppu.system.CPU.triggerNMI()
+	}
 }
 
 func (ppu *PPU) tick() {
-	if ppu.nmiDelay > 0 {
-		ppu.nmiDelay--
-		if ppu.nmiDelay == 0 && ppu.nmiOutput && ppu.nmiOccurred {
-			ppu.system.CPU.triggerNMI()
-		}
-	}
-
-	if ppu.flagShowBackground != 0 || ppu.flagShowSprites != 0 {
-		if ppu.f == 1 && ppu.ScanLine == 261 && ppu.Cycle == 339 {
-			ppu.Cycle = 0
-			ppu.ScanLine = 0
-			ppu.Frame++
-			ppu.f ^= 1
-			return
-		}
+	if ppu.Cycle == 339 && ppu.ScanLine == 261 && ppu.f == 1 &&
+		(ppu.flagShowBackground != 0 || ppu.flagShowSprites != 0) {
+		ppu.Cycle = 0
+		ppu.ScanLine = 0
+		ppu.Frame++
+		ppu.f ^= 1
+		return
 	}
 	ppu.Cycle++
 	if ppu.Cycle > 340 {
@@ -373,6 +392,7 @@ func (ppu *PPU) tick() {
 
 func (ppu *PPU) setVerticalBlank() {
 	ppu.front, ppu.back = ppu.back, ppu.front
+	ppu.backPix = pixWords(ppu.back)
 	ppu.nmiOccurred = true
 	ppu.nmiChange()
 }
@@ -460,13 +480,7 @@ func (ppu *PPU) renderPixel() {
 			color = background
 		}
 	}
-	paletteColor := Palette[ppu.readPalette(uint16(color))%64]
-	pixelOffset := ppu.back.PixOffset(x, y)
-	pixels := ppu.back.Pix
-	pixels[pixelOffset] = paletteColor.R
-	pixels[pixelOffset+1] = paletteColor.G
-	pixels[pixelOffset+2] = paletteColor.B
-	pixels[pixelOffset+3] = paletteColor.A
+	ppu.backPix[y*256+x] = PaletteRGBA[ppu.readPalette(uint16(color))&63]
 }
 
 // fetches the current background pixel color index from the tile data.

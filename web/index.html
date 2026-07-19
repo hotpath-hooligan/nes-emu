@@ -1750,9 +1750,9 @@
               <span class="setting-toggle-state" id="performance-toggle-state" aria-hidden="true">ON</span>
             </button>
 
-            <button class="setting-toggle" id="crt-effect-toggle" type="button" aria-pressed="true" aria-label="Disable CRT effect" title="Disable CRT effect">
+            <button class="setting-toggle" id="crt-effect-toggle" type="button" aria-pressed="false" aria-label="Enable CRT effect" title="Enable CRT effect">
               <span class="setting-copy"><strong>CRT effect</strong><small>Scanlines and screen vignette</small></span>
-              <span class="setting-toggle-state" id="crt-effect-toggle-state" aria-hidden="true">ON</span>
+              <span class="setting-toggle-state" id="crt-effect-toggle-state" aria-hidden="true">OFF</span>
             </button>
           </div>
         </section>
@@ -1837,7 +1837,7 @@
     let menuGain;
     let audioEnabled = true;
     let showPerformance = true;
-    let crtEffectEnabled = true;
+    let crtEffectEnabled = false;
     let currentSession;
     let sessionCheckpoint;
     let lastSessionData;
@@ -1848,7 +1848,7 @@
       const savedAudioSetting = localStorage.getItem("gones-audio") ?? localStorage.getItem("gones-menu-sound");
       audioEnabled = savedAudioSetting !== "off";
       showPerformance = localStorage.getItem("gones-show-performance") !== "off";
-      crtEffectEnabled = localStorage.getItem("gones-crt-effect") !== "off";
+      crtEffectEnabled = localStorage.getItem("gones-crt-effect") === "on";
       const savedSession = JSON.parse(localStorage.getItem("gones-last-session") || "null");
       if (typeof savedSession?.name === "string" && Number.isFinite(savedSession?.durationSeconds)) {
         lastSessionData = {

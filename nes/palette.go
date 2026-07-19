@@ -4,6 +4,10 @@ import "image/color"
 
 var Palette [64]color.RGBA
 
+// PaletteRGBA holds the same colors pre-packed in the little-endian byte order
+// used by image.RGBA (R, G, B, A), so renderPixel writes one word per pixel.
+var PaletteRGBA [64]uint32
+
 func init() {
 	colors := []uint32{
 		0x666666, 0x002A88, 0x1412A7, 0x3B00A4, 0x5C007E, 0x6E0040, 0x6C0600, 0x561D00,
@@ -20,5 +24,6 @@ func init() {
 		g := byte(c >> 8)
 		b := byte(c)
 		Palette[i] = color.RGBA{r, g, b, 0xFF}
+		PaletteRGBA[i] = uint32(r) | uint32(g)<<8 | uint32(b)<<16 | 0xFF000000
 	}
 }

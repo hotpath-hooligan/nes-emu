@@ -22,6 +22,10 @@ build: clean
 		echo "Error: compressed WASM exceeds $(WASM_GZIP_LIMIT) bytes"; \
 		exit 1; \
 	fi
+	@if find $(DIST_DIR) -type f \( -name '*_test.go' -o -name '*.test' -o -name '*.test.*' -o -name '*.spec.*' \) -print -quit | grep -q .; then \
+		echo "Error: test files must not be included in $(DIST_DIR)"; \
+		exit 1; \
+	fi
 	@find $(DIST_DIR) -type f -printf '%s %p\n' | sort -n
 
 .PHONY: web

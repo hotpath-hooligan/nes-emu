@@ -120,13 +120,10 @@ type CPU struct {
 	N         byte
 	interrupt byte
 	stall     int
-	step      stepInfo
-	table     [256]func(*stepInfo)
 }
 
 func NewCPU(sys *System) *CPU {
 	cpu := CPU{sys: sys}
-	cpu.createTable()
 	cpu.Reset()
 	return &cpu
 }
@@ -172,43 +169,6 @@ func (cpu *CPU) Write(address uint16, value byte) {
 		cpu.sys.APU.writeRegister(address, value)
 	case address >= 0x6000:
 		cpu.sys.Mapper.Write(address, value)
-	}
-}
-
-func (c *CPU) createTable() {
-	c.table = [256]func(*stepInfo){
-		c.brk, c.ora, c.kil, c.slo, c.nop, c.ora, c.asl, c.slo,
-		c.php, c.ora, c.asl, c.anc, c.nop, c.ora, c.asl, c.slo,
-		c.bpl, c.ora, c.kil, c.slo, c.nop, c.ora, c.asl, c.slo,
-		c.clc, c.ora, c.nop, c.slo, c.nop, c.ora, c.asl, c.slo,
-		c.jsr, c.and, c.kil, c.rla, c.bit, c.and, c.rol, c.rla,
-		c.plp, c.and, c.rol, c.anc, c.bit, c.and, c.rol, c.rla,
-		c.bmi, c.and, c.kil, c.rla, c.nop, c.and, c.rol, c.rla,
-		c.sec, c.and, c.nop, c.rla, c.nop, c.and, c.rol, c.rla,
-		c.rti, c.eor, c.kil, c.sre, c.nop, c.eor, c.lsr, c.sre,
-		c.pha, c.eor, c.lsr, c.alr, c.jmp, c.eor, c.lsr, c.sre,
-		c.bvc, c.eor, c.kil, c.sre, c.nop, c.eor, c.lsr, c.sre,
-		c.cli, c.eor, c.nop, c.sre, c.nop, c.eor, c.lsr, c.sre,
-		c.rts, c.adc, c.kil, c.rra, c.nop, c.adc, c.ror, c.rra,
-		c.pla, c.adc, c.ror, c.arr, c.jmp, c.adc, c.ror, c.rra,
-		c.bvs, c.adc, c.kil, c.rra, c.nop, c.adc, c.ror, c.rra,
-		c.sei, c.adc, c.nop, c.rra, c.nop, c.adc, c.ror, c.rra,
-		c.nop, c.sta, c.nop, c.sax, c.sty, c.sta, c.stx, c.sax,
-		c.dey, c.nop, c.txa, c.xaa, c.sty, c.sta, c.stx, c.sax,
-		c.bcc, c.sta, c.kil, c.ahx, c.sty, c.sta, c.stx, c.sax,
-		c.tya, c.sta, c.txs, c.tas, c.shy, c.sta, c.shx, c.ahx,
-		c.ldy, c.lda, c.ldx, c.lax, c.ldy, c.lda, c.ldx, c.lax,
-		c.tay, c.lda, c.tax, c.lax, c.ldy, c.lda, c.ldx, c.lax,
-		c.bcs, c.lda, c.kil, c.lax, c.ldy, c.lda, c.ldx, c.lax,
-		c.clv, c.lda, c.tsx, c.las, c.ldy, c.lda, c.ldx, c.lax,
-		c.cpy, c.cmp, c.nop, c.dcp, c.cpy, c.cmp, c.dec, c.dcp,
-		c.iny, c.cmp, c.dex, c.axs, c.cpy, c.cmp, c.dec, c.dcp,
-		c.bne, c.cmp, c.kil, c.dcp, c.nop, c.cmp, c.dec, c.dcp,
-		c.cld, c.cmp, c.nop, c.dcp, c.nop, c.cmp, c.dec, c.dcp,
-		c.cpx, c.sbc, c.nop, c.isc, c.cpx, c.sbc, c.inc, c.isc,
-		c.inx, c.sbc, c.nop, c.sbc, c.cpx, c.sbc, c.inc, c.isc,
-		c.beq, c.sbc, c.kil, c.isc, c.nop, c.sbc, c.inc, c.isc,
-		c.sed, c.sbc, c.nop, c.isc, c.nop, c.sbc, c.inc, c.isc,
 	}
 }
 
@@ -399,8 +359,168 @@ func (cpu *CPU) Step() int {
 	if pageCrossed {
 		cpu.Cycles += uint64(instructionPageCycles[opcode])
 	}
-	cpu.step = stepInfo{address, cpu.PC, mode}
-	cpu.table[opcode](&cpu.step)
+	info := &stepInfo{address, cpu.PC, mode}
+
+	// Dispatching with a switch rather than a table of closures lets the
+	// compiler emit a jump table and inline the simple opcodes, which matters
+	// most on wasm where every indirect call goes through call_indirect.
+	switch opcode {
+	case 0x00:
+		cpu.brk(info)
+	case 0x01, 0x05, 0x09, 0x0D, 0x11, 0x15, 0x19, 0x1D:
+		cpu.ora(info)
+	case 0x02, 0x12, 0x22, 0x32, 0x42, 0x52, 0x62, 0x72,
+		0x92, 0xB2, 0xD2, 0xF2:
+		cpu.kil(info)
+	case 0x03, 0x07, 0x0F, 0x13, 0x17, 0x1B, 0x1F:
+		cpu.slo(info)
+	case 0x04, 0x0C, 0x14, 0x1A, 0x1C, 0x34, 0x3A, 0x3C,
+		0x44, 0x54, 0x5A, 0x5C, 0x64, 0x74, 0x7A, 0x7C,
+		0x80, 0x82, 0x89, 0xC2, 0xD4, 0xDA, 0xDC, 0xE2,
+		0xEA, 0xF4, 0xFA, 0xFC:
+		cpu.nop(info)
+	case 0x06, 0x0A, 0x0E, 0x16, 0x1E:
+		cpu.asl(info)
+	case 0x08:
+		cpu.php(info)
+	case 0x0B, 0x2B:
+		cpu.anc(info)
+	case 0x10:
+		cpu.bpl(info)
+	case 0x18:
+		cpu.clc(info)
+	case 0x20:
+		cpu.jsr(info)
+	case 0x21, 0x25, 0x29, 0x2D, 0x31, 0x35, 0x39, 0x3D:
+		cpu.and(info)
+	case 0x23, 0x27, 0x2F, 0x33, 0x37, 0x3B, 0x3F:
+		cpu.rla(info)
+	case 0x24, 0x2C:
+		cpu.bit(info)
+	case 0x26, 0x2A, 0x2E, 0x36, 0x3E:
+		cpu.rol(info)
+	case 0x28:
+		cpu.plp(info)
+	case 0x30:
+		cpu.bmi(info)
+	case 0x38:
+		cpu.sec(info)
+	case 0x40:
+		cpu.rti(info)
+	case 0x41, 0x45, 0x49, 0x4D, 0x51, 0x55, 0x59, 0x5D:
+		cpu.eor(info)
+	case 0x43, 0x47, 0x4F, 0x53, 0x57, 0x5B, 0x5F:
+		cpu.sre(info)
+	case 0x46, 0x4A, 0x4E, 0x56, 0x5E:
+		cpu.lsr(info)
+	case 0x48:
+		cpu.pha(info)
+	case 0x4B:
+		cpu.alr(info)
+	case 0x4C, 0x6C:
+		cpu.jmp(info)
+	case 0x50:
+		cpu.bvc(info)
+	case 0x58:
+		cpu.cli(info)
+	case 0x60:
+		cpu.rts(info)
+	case 0x61, 0x65, 0x69, 0x6D, 0x71, 0x75, 0x79, 0x7D:
+		cpu.adc(info)
+	case 0x63, 0x67, 0x6F, 0x73, 0x77, 0x7B, 0x7F:
+		cpu.rra(info)
+	case 0x66, 0x6A, 0x6E, 0x76, 0x7E:
+		cpu.ror(info)
+	case 0x68:
+		cpu.pla(info)
+	case 0x6B:
+		cpu.arr(info)
+	case 0x70:
+		cpu.bvs(info)
+	case 0x78:
+		cpu.sei(info)
+	case 0x81, 0x85, 0x8D, 0x91, 0x95, 0x99, 0x9D:
+		cpu.sta(info)
+	case 0x83, 0x87, 0x8F, 0x97:
+		cpu.sax(info)
+	case 0x84, 0x8C, 0x94:
+		cpu.sty(info)
+	case 0x86, 0x8E, 0x96:
+		cpu.stx(info)
+	case 0x88:
+		cpu.dey(info)
+	case 0x8A:
+		cpu.txa(info)
+	case 0x8B:
+		cpu.xaa(info)
+	case 0x90:
+		cpu.bcc(info)
+	case 0x93, 0x9F:
+		cpu.ahx(info)
+	case 0x98:
+		cpu.tya(info)
+	case 0x9A:
+		cpu.txs(info)
+	case 0x9B:
+		cpu.tas(info)
+	case 0x9C:
+		cpu.shy(info)
+	case 0x9E:
+		cpu.shx(info)
+	case 0xA0, 0xA4, 0xAC, 0xB4, 0xBC:
+		cpu.ldy(info)
+	case 0xA1, 0xA5, 0xA9, 0xAD, 0xB1, 0xB5, 0xB9, 0xBD:
+		cpu.lda(info)
+	case 0xA2, 0xA6, 0xAE, 0xB6, 0xBE:
+		cpu.ldx(info)
+	case 0xA3, 0xA7, 0xAB, 0xAF, 0xB3, 0xB7, 0xBF:
+		cpu.lax(info)
+	case 0xA8:
+		cpu.tay(info)
+	case 0xAA:
+		cpu.tax(info)
+	case 0xB0:
+		cpu.bcs(info)
+	case 0xB8:
+		cpu.clv(info)
+	case 0xBA:
+		cpu.tsx(info)
+	case 0xBB:
+		cpu.las(info)
+	case 0xC0, 0xC4, 0xCC:
+		cpu.cpy(info)
+	case 0xC1, 0xC5, 0xC9, 0xCD, 0xD1, 0xD5, 0xD9, 0xDD:
+		cpu.cmp(info)
+	case 0xC3, 0xC7, 0xCF, 0xD3, 0xD7, 0xDB, 0xDF:
+		cpu.dcp(info)
+	case 0xC6, 0xCE, 0xD6, 0xDE:
+		cpu.dec(info)
+	case 0xC8:
+		cpu.iny(info)
+	case 0xCA:
+		cpu.dex(info)
+	case 0xCB:
+		cpu.axs(info)
+	case 0xD0:
+		cpu.bne(info)
+	case 0xD8:
+		cpu.cld(info)
+	case 0xE0, 0xE4, 0xEC:
+		cpu.cpx(info)
+	case 0xE1, 0xE5, 0xE9, 0xEB, 0xED, 0xF1, 0xF5, 0xF9,
+		0xFD:
+		cpu.sbc(info)
+	case 0xE3, 0xE7, 0xEF, 0xF3, 0xF7, 0xFB, 0xFF:
+		cpu.isc(info)
+	case 0xE6, 0xEE, 0xF6, 0xFE:
+		cpu.inc(info)
+	case 0xE8:
+		cpu.inx(info)
+	case 0xF0:
+		cpu.beq(info)
+	case 0xF8:
+		cpu.sed(info)
+	}
 
 	return int(cpu.Cycles - cycles)
 }
