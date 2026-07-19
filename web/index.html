@@ -1,0 +1,2069 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080a12">
+  <meta name="description" content="Play legally obtained NES ROMs locally in your browser with GoNES.">
+  <title>GoNES · Browser Emulator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #080a12;
+      color: #f7f7fb;
+      font-synthesis: none;
+      --surface: rgb(20 22 34 / 88%);
+      --surface-strong: #181b29;
+      --border: rgb(255 255 255 / 11%);
+      --border-strong: rgb(255 255 255 / 17%);
+      --muted: #a6a9b8;
+      --accent: #ff4f72;
+      --accent-light: #ff8aa0;
+      --blue: #78a8ff;
+      --success: #65d6a6;
+      --error: #ff8b8b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-width: 20rem;
+      background: #080a12;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 12% 0%, rgb(255 79 114 / 14%), transparent 31rem),
+        radial-gradient(circle at 92% 92%, rgb(69 110 255 / 13%), transparent 34rem),
+        #080a12;
+    }
+
+    body::before {
+      position: fixed;
+      z-index: 0;
+      inset: 0;
+      background-image:
+        linear-gradient(rgb(255 255 255 / 2.5%) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(255 255 255 / 2.5%) 1px, transparent 1px);
+      background-size: 2.5rem 2.5rem;
+      content: "";
+      mask-image: linear-gradient(to bottom, black, transparent 78%);
+      pointer-events: none;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button,
+    .button {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    a {
+      color: #bcd2ff;
+      text-underline-offset: 0.2em;
+    }
+
+    a:hover {
+      color: #fff;
+    }
+
+    .launcher {
+      position: relative;
+      z-index: 2;
+      width: min(68rem, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: clamp(2rem, 6vw, 5rem) 0 2rem;
+    }
+
+    body[data-running="true"] {
+      overflow: hidden;
+      background: #000;
+    }
+
+    body[data-running="true"]::before,
+    body[data-running="true"] .launcher {
+      display: none;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
+      gap: clamp(2rem, 6vw, 5rem);
+      align-items: center;
+      margin-bottom: clamp(1.75rem, 4vw, 3rem);
+    }
+
+    .brand {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      color: #d6d8e3;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .brand-mark {
+      position: relative;
+      display: grid;
+      width: 4rem;
+      height: 2.65rem;
+      overflow: hidden;
+      flex: none;
+      border: 1px solid rgb(255 255 255 / 18%);
+      border-radius: 0.78rem 0.78rem 0.78rem 0.35rem;
+      place-items: center;
+      isolation: isolate;
+      background:
+        linear-gradient(145deg, rgb(255 255 255 / 11%), transparent 30%),
+        #1c1e2a;
+      box-shadow:
+        0 0.8rem 1.8rem rgb(255 79 114 / 18%),
+        inset 0 1px rgb(255 255 255 / 8%);
+      transform: rotate(-2deg);
+    }
+
+    .brand-mark::before {
+      position: absolute;
+      z-index: -1;
+      inset: 0.34rem 0.34rem 0.68rem;
+      border: 1px solid rgb(255 138 160 / 32%);
+      border-radius: 0.42rem;
+      background: linear-gradient(160deg, #10111a, #07080d);
+      box-shadow: inset 0 0.5rem 1rem rgb(0 0 0 / 32%);
+      content: "";
+    }
+
+    .brand-mark::after {
+      position: absolute;
+      right: 0.58rem;
+      bottom: 0.29rem;
+      left: 0.58rem;
+      height: 0.16rem;
+      border-radius: 999px;
+      background: repeating-linear-gradient(90deg, var(--accent) 0 0.48rem, transparent 0.48rem 0.68rem);
+      content: "";
+      opacity: 0.75;
+    }
+
+    .brand-mark__word {
+      margin-top: -0.26rem;
+      color: var(--accent-light);
+      font: 950 0.95rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.03em;
+      text-shadow: 0 0 1rem rgb(255 79 114 / 55%);
+    }
+
+    .brand-copy {
+      display: grid;
+      gap: 0.2rem;
+      line-height: 1;
+    }
+
+    .brand-copy strong {
+      color: #f2f3f8;
+      font-size: 0.69rem;
+      letter-spacing: 0.14em;
+    }
+
+    .brand-copy small {
+      color: #777b8d;
+      font-size: 0.59rem;
+      font-weight: 750;
+      letter-spacing: 0.18em;
+    }
+
+    h1,
+    h2,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 48rem;
+      margin-bottom: 1rem;
+      font-size: clamp(2.6rem, 7.5vw, 5.6rem);
+      line-height: 0.95;
+      letter-spacing: -0.065em;
+    }
+
+    h1 span {
+      background: linear-gradient(135deg, #ff9caf 10%, var(--accent) 90%);
+      background-clip: text;
+      color: transparent;
+    }
+
+    .lede {
+      max-width: 41rem;
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.12rem);
+      line-height: 1.65;
+    }
+
+    .last-session {
+      display: flex;
+      gap: 0.42rem;
+      align-items: center;
+      width: fit-content;
+      max-width: 100%;
+      margin: 1rem 0 0;
+      padding: 0.42rem 0.68rem;
+      border: 1px solid rgb(255 255 255 / 9%);
+      border-radius: 999px;
+      background: rgb(255 255 255 / 3%);
+      color: #7f8394;
+      font: 750 0.64rem/1.2 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.03em;
+    }
+
+    .last-session[hidden] {
+      display: none;
+    }
+
+    .last-session strong {
+      max-width: min(20rem, 42vw);
+      overflow: hidden;
+      color: #e2e4ec;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .last-session time {
+      color: var(--accent-light);
+      white-space: nowrap;
+    }
+
+    .hero-console-wrap {
+      display: grid;
+      gap: 0.8rem;
+      justify-items: stretch;
+    }
+
+    .hero-console {
+      position: relative;
+      min-height: 8.7rem;
+      overflow: hidden;
+      border: 1px solid rgb(255 255 255 / 12%);
+      border-radius: 1.25rem 1.25rem 1.25rem 0.55rem;
+      background:
+        radial-gradient(circle at 18% 25%, rgb(255 255 255 / 8%), transparent 2.8rem),
+        linear-gradient(145deg, #252836, #10121b 68%);
+      box-shadow:
+        0 1.4rem 3rem rgb(0 0 0 / 35%),
+        inset 0 1px rgb(255 255 255 / 9%);
+    }
+
+    .console-slot {
+      position: absolute;
+      top: 1.25rem;
+      right: 1.2rem;
+      left: 1.2rem;
+      height: 3.4rem;
+      border: 1px solid rgb(0 0 0 / 58%);
+      border-radius: 0.45rem;
+      background: #090a10;
+      box-shadow: inset 0 0.7rem 1rem rgb(0 0 0 / 80%), 0 1px rgb(255 255 255 / 6%);
+    }
+
+    .console-cartridge {
+      position: absolute;
+      top: -0.5rem;
+      left: 50%;
+      width: 6.8rem;
+      height: 4.25rem;
+      border: 1px solid rgb(255 255 255 / 17%);
+      border-radius: 0.55rem 0.55rem 0.18rem 0.18rem;
+      background: linear-gradient(145deg, #323542, #1b1d28);
+      box-shadow: 0 0.6rem 1.2rem rgb(0 0 0 / 36%), inset 0 1px rgb(255 255 255 / 10%);
+      transform: translateX(-50%);
+    }
+
+    .console-cartridge::before {
+      position: absolute;
+      inset: 0.62rem 0.65rem 0.8rem;
+      border: 1px solid rgb(255 138 160 / 34%);
+      border-radius: 0.3rem;
+      background:
+        linear-gradient(135deg, transparent 46%, rgb(255 255 255 / 6%) 47% 52%, transparent 53%),
+        linear-gradient(155deg, #681e35, #24111c);
+      content: "8-BIT";
+      color: var(--accent-light);
+      font: 900 0.57rem/2.2rem ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.12em;
+      text-align: center;
+      text-shadow: 0 0 0.8rem rgb(255 79 114 / 72%);
+    }
+
+    .console-cartridge::after {
+      position: absolute;
+      right: 1.15rem;
+      bottom: 0.26rem;
+      left: 1.15rem;
+      height: 0.22rem;
+      background: repeating-linear-gradient(90deg, #c59f5e 0 0.23rem, transparent 0.23rem 0.34rem);
+      content: "";
+    }
+
+    .console-face {
+      position: absolute;
+      right: 1.25rem;
+      bottom: 0.85rem;
+      left: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .console-controls {
+      display: flex;
+      gap: 0.45rem;
+      align-items: center;
+    }
+
+    .console-button {
+      width: 1.45rem;
+      height: 0.55rem;
+      border: 1px solid rgb(255 255 255 / 8%);
+      border-radius: 999px;
+      background: #2b2e3a;
+      box-shadow: 0 0.18rem rgb(4 5 9 / 80%);
+    }
+
+    .console-led {
+      width: 0.46rem;
+      height: 0.46rem;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0.75rem rgb(255 79 114 / 88%);
+      animation: ledBlink 2.2s steps(1) infinite;
+    }
+
+    .hero-toolbar {
+      display: block;
+    }
+
+    .runtime-pill {
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+      padding: 0.75rem 0.9rem;
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      background: linear-gradient(110deg, rgb(21 24 36 / 92%), rgb(12 14 23 / 86%));
+      box-shadow: inset 0 1px rgb(255 255 255 / 4%), 0 0.8rem 2.2rem rgb(0 0 0 / 20%);
+      color: #c7cad6;
+      font-size: 0.82rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .runtime-copy {
+      display: grid;
+      gap: 0.12rem;
+      line-height: 1;
+    }
+
+    .runtime-copy small {
+      color: #6f7383;
+      font: 800 0.52rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.15em;
+    }
+
+    .surprise-button:focus-visible {
+      outline: 3px solid rgb(120 168 255 / 65%);
+      outline-offset: 3px;
+    }
+
+    .runtime-dot {
+      width: 0.55rem;
+      height: 0.55rem;
+      flex: none;
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 0.3rem rgb(120 168 255 / 12%);
+      animation: breathe 1.5s ease-in-out infinite;
+    }
+
+    body[data-runtime="ready"] .runtime-dot {
+      background: var(--success);
+      box-shadow: 0 0 0 0.3rem rgb(101 214 166 / 12%);
+      animation: none;
+    }
+
+    body[data-runtime="error"] .runtime-dot {
+      background: var(--error);
+      box-shadow: 0 0 0 0.3rem rgb(255 139 139 / 12%);
+      animation: none;
+    }
+
+    @keyframes breathe {
+      50% { opacity: 0.45; }
+    }
+
+    @keyframes ledBlink {
+      0%, 90% { opacity: 1; }
+      92% { opacity: 0.25; }
+      95% { opacity: 1; }
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 0.75fr);
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .side-column {
+      display: grid;
+      min-width: 0;
+      gap: 1rem;
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 1.35rem;
+      background:
+        linear-gradient(135deg, rgb(255 255 255 / 2.5%), transparent 32%),
+        var(--surface);
+      box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 28%), inset 0 1px rgb(255 255 255 / 4%);
+      backdrop-filter: blur(1.2rem);
+    }
+
+    .card::before {
+      position: absolute;
+      z-index: 1;
+      top: 0;
+      right: 1.3rem;
+      left: 1.3rem;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgb(255 255 255 / 18%), transparent);
+      content: "";
+      pointer-events: none;
+    }
+
+    .load-card {
+      padding: clamp(1.35rem, 4vw, 2.25rem);
+    }
+
+    .load-card::after {
+      position: absolute;
+      top: -7rem;
+      right: -6rem;
+      width: 14rem;
+      height: 14rem;
+      border-radius: 50%;
+      background: rgb(255 79 114 / 8%);
+      content: "";
+      pointer-events: none;
+    }
+
+    .section-label {
+      display: flex;
+      gap: 0.7rem;
+      align-items: center;
+      margin-bottom: 0.8rem;
+      color: var(--accent-light);
+      font: 800 0.72rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .section-label::after {
+      width: 2.25rem;
+      height: 1px;
+      background: currentColor;
+      content: "";
+      opacity: 0.45;
+    }
+
+    h2 {
+      margin-bottom: 0.65rem;
+      font-size: clamp(1.35rem, 3vw, 1.75rem);
+      line-height: 1.2;
+      letter-spacing: -0.035em;
+    }
+
+    .section-copy {
+      max-width: 35rem;
+      margin-bottom: 1.5rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .load-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.75rem;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .button {
+      display: flex;
+      gap: 0.85rem;
+      min-height: 4.35rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.85rem 1rem;
+      border: 1px solid transparent;
+      border-radius: 0.9rem;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease, opacity 160ms ease;
+    }
+
+    .button:hover:not(:disabled):not([aria-disabled="true"]) {
+      transform: translateY(-2px);
+    }
+
+    .button:focus-visible,
+    a:focus-visible {
+      outline: 3px solid rgb(120 168 255 / 65%);
+      outline-offset: 3px;
+    }
+
+    .button-primary {
+      background: var(--accent);
+      box-shadow: 0 0.8rem 1.75rem rgb(255 79 114 / 18%);
+      color: #17070a;
+      font-weight: 850;
+    }
+
+    .button-secondary {
+      border-color: rgb(255 255 255 / 12%);
+      background: rgb(255 255 255 / 5%);
+      color: #f7f7fb;
+      font-weight: 760;
+    }
+
+    .button-secondary:hover:not(:disabled) {
+      border-color: rgb(255 138 160 / 34%);
+      background: rgb(255 255 255 / 8%);
+      box-shadow: 0 0.65rem 1.4rem rgb(0 0 0 / 16%);
+    }
+
+    .button:disabled,
+    .button[aria-disabled="true"] {
+      cursor: wait;
+      opacity: 0.48;
+    }
+
+    .button-copy {
+      display: grid;
+      gap: 0.22rem;
+    }
+
+    .button-copy small {
+      color: inherit;
+      font-size: 0.71rem;
+      font-weight: 650;
+      opacity: 0.67;
+    }
+
+    .button-icon {
+      display: grid;
+      width: 2rem;
+      height: 2rem;
+      flex: none;
+      border-radius: 50%;
+      place-items: center;
+      background: rgb(255 255 255 / 9%);
+      font-size: 0.85rem;
+      line-height: 1;
+      transition: background 160ms ease, transform 160ms ease;
+    }
+
+    .button:hover:not(:disabled):not([aria-disabled="true"]) .button-icon {
+      background: rgb(255 255 255 / 15%);
+      transform: translateX(2px);
+    }
+
+    .button-primary .button-icon {
+      background: rgb(23 7 10 / 10%);
+      font-size: 1.2rem;
+    }
+
+    .local-note {
+      margin: 0 0 1.5rem;
+      color: #8e92a3;
+      font-size: 0.78rem;
+    }
+
+    .library-heading {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.8rem;
+    }
+
+    .library-title {
+      display: flex;
+      gap: 0.65rem;
+      align-items: baseline;
+      min-width: 0;
+    }
+
+    .library-heading h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      letter-spacing: -0.015em;
+    }
+
+    .library-count {
+      color: #85899a;
+      font: 700 0.7rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      text-transform: uppercase;
+    }
+
+    .surprise-button {
+      display: inline-flex;
+      gap: 0.45rem;
+      min-height: 2rem;
+      align-items: center;
+      padding: 0.4rem 0.65rem;
+      border: 1px solid rgb(255 138 160 / 24%);
+      border-radius: 999px;
+      background: rgb(255 79 114 / 7%);
+      color: #ffb0bf;
+      cursor: pointer;
+      font: 800 0.67rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.03em;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease, opacity 160ms ease;
+    }
+
+    .surprise-button:hover:not(:disabled) {
+      border-color: rgb(255 138 160 / 54%);
+      background: rgb(255 79 114 / 13%);
+      transform: rotate(-1deg) translateY(-2px);
+    }
+
+    .surprise-button:disabled {
+      cursor: wait;
+      opacity: 0.4;
+    }
+
+    .rom-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-rows: 5.25rem;
+      gap: 0.65rem;
+    }
+
+    .rom-button {
+      --cart-accent: #ff4f72;
+      position: relative;
+      min-width: 0;
+      height: 100%;
+      min-height: 5.25rem;
+      padding: 0.72rem 0.75rem 0.72rem 1rem;
+      overflow: hidden;
+      border-color: rgb(255 255 255 / 13%);
+      border-radius: 0.65rem 0.65rem 0.82rem 0.82rem;
+      isolation: isolate;
+      background:
+        linear-gradient(105deg, rgb(255 255 255 / 7%), transparent 25%),
+        linear-gradient(145deg, #2b2e3a, #1a1c27);
+      box-shadow:
+        inset 0 1px rgb(255 255 255 / 8%),
+        inset 0 -0.32rem rgb(0 0 0 / 20%),
+        0 0.5rem 1rem rgb(0 0 0 / 12%);
+      transform-origin: 50% 100%;
+    }
+
+    .rom-button::before {
+      position: absolute;
+      z-index: -1;
+      inset: 0.55rem 3.3rem 0.85rem 0.62rem;
+      border: 1px solid color-mix(in srgb, var(--cart-accent) 36%, transparent);
+      border-radius: 0.38rem;
+      background:
+        linear-gradient(135deg, transparent 38%, rgb(255 255 255 / 5%) 39% 45%, transparent 46%),
+        linear-gradient(150deg, color-mix(in srgb, var(--cart-accent) 34%, #161722), #141620 72%);
+      content: "";
+      transition: border-color 180ms ease, filter 180ms ease;
+    }
+
+    .rom-button::after {
+      position: absolute;
+      z-index: 2;
+      top: -50%;
+      bottom: -50%;
+      left: -45%;
+      width: 28%;
+      background: linear-gradient(90deg, transparent, rgb(255 255 255 / 13%), transparent);
+      content: "";
+      opacity: 0;
+      pointer-events: none;
+      transform: rotate(18deg);
+      transition: left 420ms ease, opacity 160ms ease;
+    }
+
+    .rom-button:hover:not(:disabled) {
+      border-color: color-mix(in srgb, var(--cart-accent) 52%, transparent);
+      background: linear-gradient(145deg, #323541, #1d1f2b);
+      box-shadow:
+        inset 0 1px rgb(255 255 255 / 10%),
+        inset 0 -0.32rem rgb(0 0 0 / 18%),
+        0 0.9rem 1.8rem rgb(0 0 0 / 25%),
+        0 0 1.25rem color-mix(in srgb, var(--cart-accent) 12%, transparent);
+      transform: perspective(30rem) rotateX(2deg) rotateZ(-0.6deg) translateY(-4px);
+    }
+
+    .rom-button:hover:not(:disabled)::before {
+      filter: saturate(1.22) brightness(1.08);
+    }
+
+    .rom-button:hover:not(:disabled)::after {
+      left: 112%;
+      opacity: 1;
+    }
+
+    .rom-button .button-copy {
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+      max-width: calc(100% - 2.5rem);
+      padding: 0.25rem 0.4rem;
+    }
+
+    .rom-button .button-copy > span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .rom-button .button-copy > span:first-child {
+      text-shadow: 0 1px 0 rgb(0 0 0 / 38%);
+    }
+
+    .rom-button .button-copy small {
+      color: color-mix(in srgb, var(--cart-accent) 55%, #d6d8e3);
+      font: 800 0.57rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .rom-slot {
+      position: absolute;
+      z-index: 1;
+      right: 0.86rem;
+      bottom: 0.48rem;
+      color: #777b8d;
+      font: 800 0.48rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.08em;
+    }
+
+    .game-icon {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      width: 2rem;
+      height: 2.45rem;
+      flex: none;
+      border: 1px solid rgb(255 255 255 / 16%);
+      border-radius: 0.3rem 0.3rem 0.13rem 0.13rem;
+      place-items: center;
+      background: linear-gradient(145deg, #3b3e4b, #22242e);
+      box-shadow: 0 0.35rem 0.7rem rgb(0 0 0 / 22%), inset 0 1px rgb(255 255 255 / 8%);
+      color: var(--cart-accent);
+      font-size: 0;
+      transition: transform 180ms ease;
+    }
+
+    .game-icon::before {
+      width: 1rem;
+      height: 1.1rem;
+      border: 1px solid color-mix(in srgb, var(--cart-accent) 64%, transparent);
+      border-radius: 0.16rem;
+      background: color-mix(in srgb, var(--cart-accent) 13%, #171822);
+      content: "▶";
+      color: color-mix(in srgb, var(--cart-accent) 80%, white);
+      font: 800 0.48rem/1.05rem ui-monospace, monospace;
+      text-align: center;
+    }
+
+    .game-icon::after {
+      position: absolute;
+      right: 0.35rem;
+      bottom: 0.16rem;
+      left: 0.35rem;
+      height: 0.15rem;
+      background: repeating-linear-gradient(90deg, #b59156 0 0.15rem, transparent 0.15rem 0.22rem);
+      content: "";
+    }
+
+    .rom-button:hover:not(:disabled) .game-icon {
+      transform: translateY(-2px) rotate(2deg);
+    }
+
+    .library-pagination {
+      display: flex;
+      gap: 0.7rem;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.4rem;
+      margin-top: 0.85rem;
+    }
+
+    .library-pagination[hidden] {
+      display: none;
+    }
+
+    .pagination-button {
+      display: grid;
+      width: 2.25rem;
+      height: 2.25rem;
+      border: 1px solid rgb(255 255 255 / 12%);
+      border-radius: 0.65rem;
+      place-items: center;
+      background: rgb(255 255 255 / 5%);
+      color: #d9dbe5;
+      cursor: pointer;
+      transition: border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease, opacity 150ms ease;
+    }
+
+    .pagination-button:hover:not(:disabled) {
+      border-color: rgb(255 138 160 / 42%);
+      background: rgb(255 79 114 / 10%);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+
+    .pagination-button:disabled {
+      cursor: default;
+      opacity: 0.3;
+    }
+
+    .pagination-button:focus-visible {
+      outline: 3px solid rgb(120 168 255 / 65%);
+      outline-offset: 3px;
+    }
+
+    .page-indicator {
+      min-width: 5.8rem;
+      color: #85899a;
+      font: 800 0.61rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+
+    .catalog-state {
+      grid-column: 1 / -1;
+      margin: 0;
+      padding: 1rem;
+      border: 1px dashed rgb(255 255 255 / 12%);
+      border-radius: 0.85rem;
+      color: #8e92a3;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .local-divider {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      margin-top: 1.35rem;
+      color: #777b8d;
+      font-size: 0.72rem;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .local-divider::before,
+    .local-divider::after {
+      height: 1px;
+      flex: 1;
+      background: rgb(255 255 255 / 9%);
+      content: "";
+    }
+
+    .status-panel {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+      min-height: 3.5rem;
+      margin-bottom: 1rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid rgb(120 168 255 / 18%);
+      border-radius: 0.85rem;
+      background: rgb(120 168 255 / 7%);
+      color: #cfddfb;
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .status-panel:empty {
+      display: none;
+    }
+
+    .status-panel::before {
+      width: 0.5rem;
+      height: 0.5rem;
+      flex: none;
+      border-radius: 50%;
+      background: var(--blue);
+      content: "";
+    }
+
+    .status-panel[data-tone="success"] {
+      border-color: rgb(101 214 166 / 20%);
+      background: rgb(101 214 166 / 7%);
+      color: #c5f4df;
+    }
+
+    .status-panel[data-tone="success"]::before {
+      background: var(--success);
+    }
+
+    .status-panel[data-tone="error"] {
+      border-color: rgb(255 139 139 / 22%);
+      background: rgb(255 139 139 / 7%);
+      color: #ffc4c4;
+    }
+
+    .status-panel[data-tone="error"]::before {
+      background: var(--error);
+    }
+
+    .legal-notice {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.85rem;
+      padding: 1rem;
+      border: 1px solid rgb(255 255 255 / 9%);
+      border-radius: 0.85rem;
+      background: rgb(5 7 13 / 42%);
+    }
+
+    .legal-icon {
+      display: grid;
+      width: 2rem;
+      height: 2rem;
+      border: 1px solid rgb(255 202 107 / 28%);
+      border-radius: 0.6rem;
+      place-items: center;
+      background: rgb(255 202 107 / 8%);
+      color: #ffca6b;
+      font-weight: 900;
+    }
+
+    .legal-notice strong {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.88rem;
+    }
+
+    .legal-notice p {
+      margin-bottom: 0;
+      color: #9fa2b2;
+      font-size: 0.78rem;
+      line-height: 1.55;
+    }
+
+    .controls-card {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      padding: clamp(1.35rem, 4vw, 2rem);
+      background:
+        linear-gradient(150deg, rgb(120 168 255 / 6%), transparent 45%),
+        var(--surface);
+    }
+
+    .settings-card {
+      min-width: 0;
+      padding: clamp(1.25rem, 3vw, 1.65rem);
+      background:
+        linear-gradient(150deg, rgb(255 79 114 / 6%), transparent 48%),
+        var(--surface);
+    }
+
+    .settings-card h2 {
+      margin-bottom: 1rem;
+    }
+
+    .settings-list {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .setting-toggle {
+      display: flex;
+      width: 100%;
+      min-height: 4rem;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 0.85rem;
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 0.85rem;
+      background: rgb(5 7 13 / 34%);
+      color: #f4f5fa;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .setting-toggle:hover {
+      border-color: rgb(255 138 160 / 38%);
+      background: rgb(255 255 255 / 5%);
+      transform: translateY(-2px);
+    }
+
+    .setting-toggle:focus-visible {
+      outline: 3px solid rgb(120 168 255 / 65%);
+      outline-offset: 3px;
+    }
+
+    .setting-copy {
+      display: grid;
+      gap: 0.25rem;
+    }
+
+    .setting-copy strong {
+      font-size: 0.84rem;
+    }
+
+    .setting-copy small {
+      color: #85899a;
+      font-size: 0.68rem;
+      font-weight: 650;
+    }
+
+    .setting-toggle-state {
+      min-width: 3.1rem;
+      padding: 0.4rem 0.5rem;
+      border: 1px solid rgb(255 255 255 / 12%);
+      border-radius: 999px;
+      background: rgb(255 255 255 / 5%);
+      color: #85899a;
+      font: 850 0.6rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+
+    .setting-toggle[aria-pressed="true"] .setting-toggle-state {
+      border-color: rgb(101 214 166 / 24%);
+      background: rgb(101 214 166 / 8%);
+      color: var(--success);
+    }
+
+    .controls-list {
+      display: grid;
+      gap: 0;
+      margin: 0.65rem 0 1.4rem;
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: minmax(6rem, 0.7fr) minmax(0, 1.3fr);
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.82rem 0;
+      border-bottom: 1px solid rgb(255 255 255 / 7%);
+    }
+
+    .control-row:last-child {
+      border-bottom: 0;
+    }
+
+    .control-name {
+      color: #b6b9c7;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .key-group {
+      display: flex;
+      gap: 0.38rem;
+      align-items: center;
+      justify-content: flex-end;
+      min-width: 0;
+      color: #777b8d;
+      font-size: 0.68rem;
+      white-space: nowrap;
+    }
+
+    kbd {
+      display: inline-grid;
+      min-width: 1.9rem;
+      min-height: 1.85rem;
+      padding: 0.3rem 0.48rem;
+      border: 1px solid rgb(255 255 255 / 14%);
+      border-bottom-width: 3px;
+      border-radius: 0.42rem;
+      place-items: center;
+      background: #222534;
+      color: #f4f5fa;
+      font: 750 0.72rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      box-shadow: inset 0 1px rgb(255 255 255 / 5%);
+      transform: translateY(0);
+      transition: border-color 80ms ease, background 80ms ease, box-shadow 80ms ease, color 80ms ease, transform 80ms ease;
+    }
+
+    kbd[data-active="true"] {
+      border-color: rgb(255 138 160 / 58%);
+      border-bottom-width: 1px;
+      background: color-mix(in srgb, var(--accent) 22%, #222534);
+      box-shadow: 0 0 1rem rgb(255 79 114 / 28%), inset 0 1px rgb(255 255 255 / 10%);
+      color: #fff;
+      transform: translateY(2px);
+    }
+
+    kbd.wide {
+      min-width: 3.4rem;
+    }
+
+    .controller-illustration {
+      position: relative;
+      display: flex;
+      min-height: 7.4rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+      padding: 1.5rem 1.6rem;
+      overflow: hidden;
+      border: 1px solid rgb(255 255 255 / 8%);
+      border-radius: 1rem;
+      background:
+        radial-gradient(circle at 82% 45%, rgb(255 79 114 / 10%), transparent 36%),
+        rgb(5 7 13 / 34%);
+      box-shadow: inset 0 1px rgb(255 255 255 / 3%);
+    }
+
+    .controller-illustration::before {
+      position: absolute;
+      top: 0.7rem;
+      left: 1rem;
+      color: #6f7383;
+      content: "PLAYER 1";
+      font: 700 0.52rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.16em;
+    }
+
+    .controller-dpad {
+      position: relative;
+      width: 3.5rem;
+      height: 1.25rem;
+      border-radius: 0.25rem;
+      background: #292c3a;
+      box-shadow: inset 0 1px rgb(255 255 255 / 7%), 0 0.3rem 0.7rem rgb(0 0 0 / 20%);
+      transition: filter 80ms ease, transform 80ms ease;
+    }
+
+    .controller-dpad[data-active="true"] {
+      filter: brightness(1.35) drop-shadow(0 0 0.45rem rgb(120 168 255 / 34%));
+      transform: scale(0.97);
+    }
+
+    .controller-dpad::before {
+      position: absolute;
+      top: -1.12rem;
+      left: 1.12rem;
+      width: 1.25rem;
+      height: 3.5rem;
+      border-radius: 0.25rem;
+      background: #292c3a;
+      box-shadow: inset 1px 0 rgb(255 255 255 / 5%);
+      content: "";
+    }
+
+    .controller-dpad::after {
+      position: absolute;
+      top: 0.42rem;
+      left: 1.54rem;
+      z-index: 1;
+      width: 0.4rem;
+      height: 0.4rem;
+      border-radius: 50%;
+      background: #171925;
+      content: "";
+    }
+
+    .controller-center {
+      display: flex;
+      gap: 0.35rem;
+      align-items: center;
+      padding-top: 1.25rem;
+    }
+
+    .controller-center span {
+      width: 1.25rem;
+      height: 0.42rem;
+      border-radius: 999px;
+      background: #292c3a;
+      box-shadow: inset 0 1px rgb(255 255 255 / 6%);
+      transform: rotate(-8deg);
+      transition: background 80ms ease, box-shadow 80ms ease, transform 80ms ease;
+    }
+
+    .controller-center span[data-active="true"] {
+      background: #505463;
+      box-shadow: 0 0 0.7rem rgb(120 168 255 / 26%);
+      transform: rotate(-8deg) translateY(2px);
+    }
+
+    .controller-buttons {
+      display: flex;
+      gap: 0.7rem;
+      padding-top: 0.25rem;
+    }
+
+    .controller-buttons span {
+      display: grid;
+      width: 2rem;
+      height: 2rem;
+      border: 0.3rem solid #292c3a;
+      border-radius: 50%;
+      place-items: center;
+      background: var(--accent);
+      box-shadow: 0 0.35rem 0.8rem rgb(255 79 114 / 18%);
+      color: #230810;
+      font: 900 0.55rem/1 ui-monospace, "SFMono-Regular", Consolas, monospace;
+      transition: filter 80ms ease, box-shadow 80ms ease, transform 80ms ease;
+    }
+
+    .controller-buttons span[data-active="true"] {
+      filter: brightness(1.2);
+      box-shadow: 0 0.15rem 0.35rem rgb(0 0 0 / 20%), 0 0 1.1rem rgb(255 79 114 / 52%);
+      transform: translateY(3px) scale(0.96);
+    }
+
+    .page-footer {
+      display: flex;
+      gap: 1rem 2rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 1.25rem;
+      color: #747889;
+      font-size: 0.72rem;
+      line-height: 1.5;
+    }
+
+    .page-footer p {
+      margin: 0;
+    }
+
+    #fps-counter {
+      position: fixed;
+      z-index: 3;
+      top: 1rem;
+      right: 1rem;
+      display: none;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: 0.45rem;
+      background: rgb(5 7 13 / 75%);
+      color: #f9fafb;
+      font: 700 0.75rem ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+
+    body[data-running="true"][data-show-performance="true"] #fps-counter {
+      display: block;
+    }
+
+    canvas {
+      position: fixed !important;
+      z-index: 1;
+      inset: 0;
+      width: 100vw !important;
+      height: 100vh !important;
+      image-rendering: pixelated;
+      visibility: hidden;
+    }
+
+    body[data-running="true"] canvas {
+      visibility: visible;
+      animation: screenOn 420ms cubic-bezier(0.2, 0.85, 0.3, 1) both;
+    }
+
+    body[data-running="true"][data-crt-effect="true"]::after {
+      position: fixed;
+      z-index: 2;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at center, transparent 42%, rgb(0 0 0 / 48%) 100%),
+        repeating-linear-gradient(0deg, rgb(0 0 0 / 26%) 0 1px, rgb(255 255 255 / 3%) 1px 2px, transparent 2px 4px),
+        repeating-linear-gradient(90deg, rgb(255 70 70 / 2.5%) 0 1px, rgb(80 255 150 / 2%) 1px 2px, rgb(80 130 255 / 2.5%) 2px 3px);
+      box-shadow: inset 0 0 7rem rgb(0 0 0 / 34%);
+      backdrop-filter: brightness(0.97) contrast(1.1) saturate(1.12);
+      content: "";
+      opacity: 1;
+      pointer-events: none;
+      animation: crtSettle 520ms ease-out both;
+    }
+
+    @keyframes screenOn {
+      0% { filter: brightness(8) saturate(0); transform: scaleY(0.008) scaleX(0.7); }
+      45% { filter: brightness(2) saturate(0.65); transform: scaleY(0.025) scaleX(1); }
+      100% { filter: none; transform: scale(1); }
+    }
+
+    @keyframes crtSettle {
+      from { opacity: 0.15; }
+      to { opacity: 1; }
+    }
+
+    @media (max-width: 48rem) {
+      .launcher {
+        width: min(100% - 1.25rem, 38rem);
+        padding-top: 2rem;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+        align-items: start;
+      }
+
+      .hero-console-wrap {
+        width: min(100%, 24rem);
+      }
+
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .controls-card {
+        min-height: 0;
+      }
+    }
+
+    @media (max-width: 31rem) {
+      .rom-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .control-row {
+        grid-template-columns: 5rem minmax(0, 1fr);
+      }
+
+      .page-footer {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .library-heading {
+        align-items: flex-start;
+      }
+
+      .library-title {
+        display: grid;
+        gap: 0.3rem;
+      }
+
+      .surprise-button span:last-child {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body data-runtime="loading">
+  <main class="launcher" id="launcher">
+    <header class="hero">
+      <div>
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"><span class="brand-mark__word">NES</span></span>
+          <span class="brand-copy"><strong>8-bit emulator</strong><small>Browser edition</small></span>
+        </div>
+        <h1><span>Go</span>NES</h1>
+        <p class="lede">Relive the nostalgia with a fast, local NES emulator built in Go. Pick a bundled game or bring a ROM you own.</p>
+        <p class="last-session" id="last-session" hidden><span>Last played</span><strong id="last-game"></strong><span aria-hidden="true">·</span><time id="last-duration"></time></p>
+      </div>
+      <div class="hero-console-wrap">
+        <div class="hero-console" aria-hidden="true">
+          <div class="console-slot"><span class="console-cartridge"></span></div>
+          <div class="console-face">
+            <span class="console-controls"><span class="console-button"></span><span class="console-button"></span><span class="console-led"></span></span>
+          </div>
+        </div>
+        <div class="hero-toolbar">
+          <div class="runtime-pill" role="status" aria-live="polite">
+            <span class="runtime-dot" aria-hidden="true"></span>
+            <span class="runtime-copy"><small>POWER</small><span id="runtime-label">Starting emulator…</span></span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="content-grid">
+      <section class="card load-card" aria-labelledby="load-title">
+        <div class="section-label">Load a game</div>
+        <h2 id="load-title">What do you want to play?</h2>
+        <p class="section-copy">Pick a game from the bundled library or choose an iNES <code>.nes</code> file from your device.</p>
+
+        <div class="library-heading">
+          <div class="library-title">
+            <h3>Bundled games</h3>
+            <span class="library-count" id="library-count"></span>
+          </div>
+          <button class="surprise-button" id="surprise-button" type="button" disabled><span aria-hidden="true">✦</span><span>Surprise me</span></button>
+        </div>
+        <div class="rom-grid" id="rom-grid" aria-live="polite">
+          <p class="catalog-state" id="catalog-state">Loading game library…</p>
+        </div>
+        <nav class="library-pagination" id="library-pagination" aria-label="Bundled game pages" hidden>
+          <button class="pagination-button" id="previous-page" type="button" aria-label="Previous game page">←</button>
+          <span class="page-indicator" id="page-indicator" aria-live="polite"></span>
+          <button class="pagination-button" id="next-page" type="button" aria-label="Next game page">→</button>
+        </nav>
+
+        <input class="visually-hidden" id="rom-picker" type="file" accept=".nes,application/octet-stream" disabled>
+        <div class="local-divider"><span>Or bring your own</span></div>
+        <div class="load-actions">
+          <label class="button button-primary" id="picker-button" for="rom-picker" aria-disabled="true">
+            <span class="button-copy">Choose ROM file <small>From this device · .nes</small></span>
+            <span class="button-icon" aria-hidden="true">＋</span>
+          </label>
+        </div>
+
+        <p class="local-note">ROM data stays in your browser while you play.</p>
+
+        <p class="status-panel" id="status" role="status" aria-live="polite"></p>
+
+        <aside class="legal-notice" aria-label="ROM use notice">
+          <span class="legal-icon" aria-hidden="true">!</span>
+          <div>
+            <strong>ROM usage notice</strong>
+            <p>Only bundle or load homebrew or public-domain software, or cartridge backups made and used in accordance with applicable law. Do not publish copyrighted commercial ROMs without permission. You are responsible for ensuring that your use is lawful.</p>
+          </div>
+        </aside>
+      </section>
+
+      <div class="side-column">
+        <section class="card controls-card" aria-labelledby="controls-title">
+        <div class="section-label">Controls</div>
+        <h2 id="controls-title">Player 1 keyboard</h2>
+
+        <div class="controls-list">
+          <div class="control-row">
+            <span class="control-name">D-pad</span>
+            <span class="key-group" aria-label="Arrow keys"><kbd data-code="ArrowUp">↑</kbd><kbd data-code="ArrowDown">↓</kbd><kbd data-code="ArrowLeft">←</kbd><kbd data-code="ArrowRight">→</kbd></span>
+          </div>
+          <div class="control-row">
+            <span class="control-name">A button</span>
+            <span class="key-group"><kbd data-code="KeyZ">Z</kbd><span>or</span><kbd class="wide" data-code="Space">Space</kbd></span>
+          </div>
+          <div class="control-row">
+            <span class="control-name">B button</span>
+            <span class="key-group"><kbd data-code="KeyX">X</kbd></span>
+          </div>
+          <div class="control-row">
+            <span class="control-name">Start</span>
+            <span class="key-group"><kbd class="wide" data-code="Enter">Enter</kbd></span>
+          </div>
+          <div class="control-row">
+            <span class="control-name">Select</span>
+            <span class="key-group"><kbd class="wide" data-code="ShiftRight">Right Shift</kbd></span>
+          </div>
+          <div class="control-row">
+            <span class="control-name">Power off</span>
+            <span class="key-group"><kbd data-code="Escape">Esc</kbd></span>
+          </div>
+        </div>
+
+        <div class="controller-illustration" aria-hidden="true">
+          <span class="controller-dpad" data-control="dpad"></span>
+          <span class="controller-center"><span data-control="select"></span><span data-control="start"></span></span>
+          <span class="controller-buttons"><span data-control="b">B</span><span data-control="a">A</span></span>
+        </div>
+
+        </section>
+
+        <section class="card settings-card" aria-labelledby="settings-title">
+          <div class="section-label">Settings</div>
+          <h2 id="settings-title">Audio &amp; display</h2>
+
+          <div class="settings-list">
+            <button class="setting-toggle" id="sound-toggle" type="button" aria-pressed="true" aria-label="Mute all audio" title="Mute all audio">
+              <span class="setting-copy"><strong>Audio</strong><small>Menu and game sounds</small></span>
+              <span class="setting-toggle-state" id="sound-toggle-state" aria-hidden="true">ON</span>
+            </button>
+
+            <button class="setting-toggle" id="performance-toggle" type="button" aria-pressed="true" aria-label="Hide FPS and TPS" title="Hide FPS and TPS">
+              <span class="setting-copy"><strong>Show FPS / TPS</strong><small>In-game performance overlay</small></span>
+              <span class="setting-toggle-state" id="performance-toggle-state" aria-hidden="true">ON</span>
+            </button>
+
+            <button class="setting-toggle" id="crt-effect-toggle" type="button" aria-pressed="true" aria-label="Disable CRT effect" title="Disable CRT effect">
+              <span class="setting-copy"><strong>CRT effect</strong><small>Scanlines and screen vignette</small></span>
+              <span class="setting-toggle-state" id="crt-effect-toggle-state" aria-hidden="true">ON</span>
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      <p>NTSC · 256 × 240 · Mappers 0, 1, 2, 3, 7 &amp; 11</p>
+    </footer>
+  </main>
+
+  <output id="fps-counter" aria-label="Rendering and emulation speed">-- FPS · -- TPS</output>
+
+  <script src="wasm_exec.js"></script>
+  <script>
+    const picker = document.querySelector("#rom-picker");
+    const pickerButton = document.querySelector("#picker-button");
+    const romGrid = document.querySelector("#rom-grid");
+    const catalogState = document.querySelector("#catalog-state");
+    const libraryCount = document.querySelector("#library-count");
+    const libraryPagination = document.querySelector("#library-pagination");
+    const previousPage = document.querySelector("#previous-page");
+    const nextPage = document.querySelector("#next-page");
+    const pageIndicator = document.querySelector("#page-indicator");
+    const surpriseButton = document.querySelector("#surprise-button");
+    const status = document.querySelector("#status");
+    const runtimeLabel = document.querySelector("#runtime-label");
+    const fpsCounter = document.querySelector("#fps-counter");
+    const soundToggle = document.querySelector("#sound-toggle");
+    const soundToggleState = document.querySelector("#sound-toggle-state");
+    const performanceToggle = document.querySelector("#performance-toggle");
+    const performanceToggleState = document.querySelector("#performance-toggle-state");
+    const crtEffectToggle = document.querySelector("#crt-effect-toggle");
+    const crtEffectToggleState = document.querySelector("#crt-effect-toggle-state");
+    const lastSession = document.querySelector("#last-session");
+    const lastGame = document.querySelector("#last-game");
+    const lastDuration = document.querySelector("#last-duration");
+    const gamesPerPage = 6;
+    const cartridgeColors = ["#ff4f72", "#78a8ff", "#ffc96b", "#8be0b8", "#b48cff", "#ff8f5f"];
+    const controlForCode = {
+      ArrowUp: "dpad",
+      ArrowDown: "dpad",
+      ArrowLeft: "dpad",
+      ArrowRight: "dpad",
+      KeyZ: "a",
+      Space: "a",
+      KeyX: "b",
+      Enter: "start",
+      ShiftRight: "select"
+    };
+    let lastLauncher = pickerButton;
+    let bundledGames = [];
+    let currentPage = 0;
+    let lastRandomIndex = -1;
+    let loadersDisabled = true;
+    let audioContext;
+    let menuGain;
+    let audioEnabled = true;
+    let showPerformance = true;
+    let crtEffectEnabled = true;
+    let currentSession;
+    let sessionCheckpoint;
+    let lastSessionData;
+    const pressedCodes = new Set();
+
+    try {
+      const savedAudioSetting = localStorage.getItem("gones-audio") ?? localStorage.getItem("gones-menu-sound");
+      audioEnabled = savedAudioSetting !== "off";
+      showPerformance = localStorage.getItem("gones-show-performance") !== "off";
+      crtEffectEnabled = localStorage.getItem("gones-crt-effect") !== "off";
+      const savedSession = JSON.parse(localStorage.getItem("gones-last-session") || "null");
+      if (typeof savedSession?.name === "string" && Number.isFinite(savedSession?.durationSeconds)) {
+        lastSessionData = {
+          name: savedSession.name,
+          durationSeconds: Math.max(0, Math.floor(savedSession.durationSeconds))
+        };
+      }
+    } catch (_) {
+      // Storage can be unavailable in privacy modes; the launcher still works without it.
+    }
+
+    function formatDuration(durationSeconds) {
+      const seconds = Math.max(0, Math.floor(durationSeconds));
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+      const hours = Math.floor(minutes / 60);
+      return `${hours}h ${minutes % 60}m`;
+    }
+
+    function updateLastSession() {
+      lastSession.hidden = !lastSessionData;
+      if (!lastSessionData) return;
+      lastGame.textContent = lastSessionData.name;
+      lastDuration.textContent = formatDuration(lastSessionData.durationSeconds);
+      lastDuration.dateTime = `PT${lastSessionData.durationSeconds}S`;
+    }
+
+    function saveCurrentSession() {
+      if (!currentSession) return;
+      lastSessionData = {
+        name: currentSession.name,
+        durationSeconds: Math.max(0, Math.floor((Date.now() - currentSession.startedAt) / 1000))
+      };
+      try {
+        localStorage.setItem("gones-last-session", JSON.stringify(lastSessionData));
+      } catch (_) {
+        // Session details remain available until the page is closed.
+      }
+      updateLastSession();
+    }
+
+    function beginSession(name) {
+      if (currentSession) finishSession();
+      currentSession = { name, startedAt: Date.now() };
+      saveCurrentSession();
+      sessionCheckpoint = window.setInterval(saveCurrentSession, 5000);
+    }
+
+    function finishSession() {
+      if (!currentSession) return;
+      saveCurrentSession();
+      currentSession = undefined;
+      window.clearInterval(sessionCheckpoint);
+      sessionCheckpoint = undefined;
+    }
+
+    function updateSoundToggle() {
+      soundToggle.setAttribute("aria-pressed", String(audioEnabled));
+      soundToggle.setAttribute("aria-label", audioEnabled ? "Mute all audio" : "Enable all audio");
+      soundToggle.title = audioEnabled ? "Mute all audio" : "Enable all audio";
+      soundToggleState.textContent = audioEnabled ? "ON" : "OFF";
+    }
+
+    function applyAudioSetting() {
+      if (menuGain) menuGain.gain.setValueAtTime(audioEnabled ? 1 : 0, audioContext.currentTime);
+      if (typeof window.setNESAudioEnabled === "function") window.setNESAudioEnabled(audioEnabled);
+    }
+
+    function updateDisplayToggles() {
+      performanceToggle.setAttribute("aria-pressed", String(showPerformance));
+      performanceToggle.setAttribute("aria-label", showPerformance ? "Hide FPS and TPS" : "Show FPS and TPS");
+      performanceToggle.title = showPerformance ? "Hide FPS and TPS" : "Show FPS and TPS";
+      performanceToggleState.textContent = showPerformance ? "ON" : "OFF";
+
+      crtEffectToggle.setAttribute("aria-pressed", String(crtEffectEnabled));
+      crtEffectToggle.setAttribute("aria-label", crtEffectEnabled ? "Disable CRT effect" : "Enable CRT effect");
+      crtEffectToggle.title = crtEffectEnabled ? "Disable CRT effect" : "Enable CRT effect";
+      crtEffectToggleState.textContent = crtEffectEnabled ? "ON" : "OFF";
+    }
+
+    function applyDisplaySettings() {
+      document.body.dataset.showPerformance = String(showPerformance);
+      document.body.dataset.crtEffect = String(crtEffectEnabled);
+    }
+
+    function getAudioContext() {
+      if (!audioContext) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          audioContext = new AudioContext();
+          menuGain = audioContext.createGain();
+          menuGain.gain.value = audioEnabled ? 1 : 0;
+          menuGain.connect(audioContext.destination);
+        }
+      }
+      return audioContext;
+    }
+
+    function playMenuSound(kind = "select") {
+      if (!audioEnabled) return;
+      const context = getAudioContext();
+      if (!context) return;
+      if (context.state === "suspended") context.resume().catch(() => {});
+
+      const sounds = {
+        hover: [[220, 0, 0.025, 0.012]],
+        key: [[270, 0, 0.035, 0.015]],
+        select: [[330, 0, 0.045, 0.025], [494, 0.045, 0.055, 0.018]],
+        insert: [[180, 0, 0.055, 0.028], [110, 0.06, 0.08, 0.025]],
+        start: [[330, 0, 0.06, 0.022], [494, 0.055, 0.07, 0.022], [660, 0.12, 0.09, 0.02]],
+        powerOff: [[180, 0, 0.08, 0.025], [85, 0.07, 0.14, 0.025]]
+      };
+
+      (sounds[kind] || sounds.select).forEach(([frequency, delay, duration, volume]) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        const startAt = context.currentTime + delay;
+        oscillator.type = "square";
+        oscillator.frequency.setValueAtTime(frequency, startAt);
+        gain.gain.setValueAtTime(volume, startAt);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        oscillator.connect(gain).connect(menuGain);
+        oscillator.start(startAt);
+        oscillator.stop(startAt + duration);
+      });
+    }
+
+    function setKeyState(code, active) {
+      const key = document.querySelector(`kbd[data-code="${code}"]`);
+      if (key) key.dataset.active = String(active);
+
+      const control = controlForCode[code];
+      if (!control) return;
+      const controlActive = [...pressedCodes].some((pressedCode) => controlForCode[pressedCode] === control);
+      const controlElement = document.querySelector(`[data-control="${control}"]`);
+      if (controlElement) controlElement.dataset.active = String(controlActive);
+    }
+
+    updateSoundToggle();
+    updateDisplayToggles();
+    applyDisplaySettings();
+    updateLastSession();
+
+    function setStatus(message, tone = "") {
+      status.textContent = message;
+      if (tone) {
+        status.dataset.tone = tone;
+      } else {
+        delete status.dataset.tone;
+      }
+    }
+
+    function setLoadersDisabled(disabled) {
+      loadersDisabled = disabled;
+      picker.disabled = disabled;
+      pickerButton.setAttribute("aria-disabled", String(disabled));
+      surpriseButton.disabled = disabled || bundledGames.length === 0;
+      romGrid.querySelectorAll("button").forEach((button) => {
+        button.disabled = disabled;
+      });
+      updatePaginationControls();
+    }
+
+    function describeLoadedROM(name, result) {
+      const audioStatus = result.audioAvailable === false
+        ? "audio unavailable"
+        : result.audioEnabled ? "audio on" : "audio off";
+      return `${name} is playing — mapper ${result.mapper}, ${audioStatus}.`;
+    }
+
+    function stopROM() {
+      if (document.body.dataset.running !== "true") return;
+
+      finishSession();
+      window.unloadNESROM();
+      delete document.body.dataset.running;
+      fpsCounter.textContent = "-- FPS · -- TPS";
+      setStatus("Game powered off. Choose a ROM to play.");
+      playMenuSound("powerOff");
+      requestAnimationFrame(() => lastLauncher.focus());
+    }
+
+    async function playROM(bytes, name) {
+      setLoadersDisabled(true);
+      setStatus(`Loading ${name}…`);
+
+      try {
+        const result = window.loadNESROM(bytes);
+        if (!result.ok) throw new Error(result.error);
+
+        setStatus(describeLoadedROM(name, result), "success");
+        playMenuSound("start");
+        beginSession(name);
+        document.body.dataset.running = "true";
+        requestAnimationFrame(() => document.querySelector("canvas")?.focus());
+      } catch (error) {
+        setStatus(`Could not load ROM: ${error.message}`, "error");
+      } finally {
+        setLoadersDisabled(false);
+      }
+    }
+
+    async function playBundledROM(file, name, button) {
+      lastLauncher = button;
+      playMenuSound("insert");
+      setLoadersDisabled(true);
+      setStatus(`Loading ${name}…`);
+
+      try {
+        const response = await fetch(`roms/${encodeURIComponent(file)}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        await playROM(new Uint8Array(await response.arrayBuffer()), name);
+      } catch (error) {
+        setStatus(`Could not load ${name}: ${error.message}`, "error");
+        setLoadersDisabled(false);
+      }
+    }
+
+    function updatePaginationControls() {
+      const pageCount = Math.max(1, Math.ceil(bundledGames.length / gamesPerPage));
+      libraryPagination.hidden = bundledGames.length <= gamesPerPage;
+      pageIndicator.textContent = `PAGE ${currentPage + 1} / ${pageCount}`;
+      previousPage.disabled = loadersDisabled || currentPage === 0;
+      nextPage.disabled = loadersDisabled || currentPage >= pageCount - 1;
+    }
+
+    function renderBundledROMPage() {
+      romGrid.replaceChildren();
+
+      if (bundledGames.length === 0) {
+        const message = document.createElement("p");
+        message.className = "catalog-state";
+        message.textContent = "No games are bundled in this build. You can still choose a ROM from your device.";
+        romGrid.append(message);
+        updatePaginationControls();
+        return;
+      }
+
+      const pageStart = currentPage * gamesPerPage;
+      const pageGames = bundledGames.slice(pageStart, pageStart + gamesPerPage);
+      const fragment = document.createDocumentFragment();
+      pageGames.forEach(({ file, name }, pageIndex) => {
+        const index = pageStart + pageIndex;
+        const button = document.createElement("button");
+        button.className = "button button-secondary rom-button";
+        button.type = "button";
+        button.disabled = loadersDisabled;
+        button.dataset.gameName = name;
+        button.style.setProperty("--cart-accent", cartridgeColors[index % cartridgeColors.length]);
+
+        const copy = document.createElement("span");
+        copy.className = "button-copy";
+        const title = document.createElement("span");
+        title.textContent = name;
+        const detail = document.createElement("small");
+        detail.textContent = "Bundled cartridge";
+        copy.append(title, detail);
+
+        const icon = document.createElement("span");
+        icon.className = "game-icon";
+        icon.setAttribute("aria-hidden", "true");
+
+        const slot = document.createElement("span");
+        slot.className = "rom-slot";
+        slot.setAttribute("aria-hidden", "true");
+        slot.textContent = `SLOT ${String(index + 1).padStart(2, "0")}`;
+
+        button.append(copy, icon, slot);
+        button.addEventListener("pointerenter", () => playMenuSound("hover"));
+        button.addEventListener("click", () => playBundledROM(file, name, button));
+        fragment.append(button);
+      });
+      romGrid.append(fragment);
+      updatePaginationControls();
+    }
+
+    function renderBundledROMs(games) {
+      bundledGames = games;
+      currentPage = 0;
+      libraryCount.textContent = `${games.length} ${games.length === 1 ? "game" : "games"}`;
+      surpriseButton.disabled = loadersDisabled || games.length === 0;
+      renderBundledROMPage();
+    }
+
+    async function loadBundledROMCatalog() {
+      try {
+        const response = await fetch("roms/catalog.json", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const games = await response.json();
+        if (!Array.isArray(games)) throw new Error("invalid catalog");
+
+        const validGames = games.filter((game) =>
+          typeof game?.file === "string" && typeof game?.name === "string"
+        );
+        renderBundledROMs(validGames);
+      } catch (error) {
+        bundledGames = [];
+        currentPage = 0;
+        catalogState.textContent = `Could not load the bundled game library: ${error.message}`;
+        libraryCount.textContent = "Unavailable";
+        surpriseButton.disabled = true;
+        updatePaginationControls();
+      }
+    }
+
+    window.setNESRuntimeError = (message) => {
+      finishSession();
+      delete document.body.dataset.running;
+      document.body.dataset.runtime = "error";
+      runtimeLabel.textContent = "Emulator unavailable";
+      setStatus(`Emulator stopped: ${message}`, "error");
+      setLoadersDisabled(true);
+    };
+
+    window.setNESPerformance = (fps, tps) => {
+      const roundedFPS = Math.round(fps);
+      const roundedTPS = Math.round(tps);
+      fpsCounter.textContent = `${roundedFPS} FPS · ${roundedTPS} TPS`;
+    };
+
+    picker.addEventListener("change", async () => {
+      const file = picker.files[0];
+      if (!file) return;
+
+      lastLauncher = pickerButton;
+      playMenuSound("insert");
+      try {
+        await playROM(new Uint8Array(await file.arrayBuffer()), file.name);
+      } finally {
+        picker.value = "";
+      }
+    });
+
+    pickerButton.addEventListener("click", () => {
+      if (pickerButton.getAttribute("aria-disabled") !== "true") playMenuSound("select");
+    });
+
+    previousPage.addEventListener("click", () => {
+      if (currentPage === 0) return;
+      currentPage -= 1;
+      playMenuSound("select");
+      renderBundledROMPage();
+    });
+
+    nextPage.addEventListener("click", () => {
+      const pageCount = Math.ceil(bundledGames.length / gamesPerPage);
+      if (currentPage >= pageCount - 1) return;
+      currentPage += 1;
+      playMenuSound("select");
+      renderBundledROMPage();
+    });
+
+    surpriseButton.addEventListener("click", () => {
+      if (bundledGames.length === 0) return;
+      let index = 0;
+      if (bundledGames.length > 1) {
+        do {
+          index = Math.floor(Math.random() * bundledGames.length);
+        } while (index === lastRandomIndex);
+      }
+      lastRandomIndex = index;
+      const game = bundledGames[index];
+      playBundledROM(game.file, game.name, surpriseButton);
+    });
+
+    soundToggle.addEventListener("click", () => {
+      audioEnabled = !audioEnabled;
+      try {
+        localStorage.setItem("gones-audio", audioEnabled ? "on" : "off");
+      } catch (_) {
+        // The toggle still applies for the current session.
+      }
+      updateSoundToggle();
+      applyAudioSetting();
+      if (audioEnabled) playMenuSound("select");
+    });
+
+    performanceToggle.addEventListener("click", () => {
+      showPerformance = !showPerformance;
+      try {
+        localStorage.setItem("gones-show-performance", showPerformance ? "on" : "off");
+      } catch (_) {
+        // The toggle still applies for the current session.
+      }
+      updateDisplayToggles();
+      applyDisplaySettings();
+      playMenuSound("select");
+    });
+
+    crtEffectToggle.addEventListener("click", () => {
+      crtEffectEnabled = !crtEffectEnabled;
+      try {
+        localStorage.setItem("gones-crt-effect", crtEffectEnabled ? "on" : "off");
+      } catch (_) {
+        // The toggle still applies for the current session.
+      }
+      updateDisplayToggles();
+      applyDisplaySettings();
+      playMenuSound("select");
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (!event.repeat) {
+        pressedCodes.add(event.code);
+        setKeyState(event.code, true);
+        if (controlForCode[event.code] && document.body.dataset.running !== "true") playMenuSound("key");
+      }
+      if (event.key !== "Escape" || document.body.dataset.running !== "true") return;
+
+      event.preventDefault();
+      stopROM();
+    }, { capture: true });
+
+    window.addEventListener("keyup", (event) => {
+      pressedCodes.delete(event.code);
+      setKeyState(event.code, false);
+    });
+
+    window.addEventListener("blur", () => {
+      [...pressedCodes].forEach((code) => {
+        pressedCodes.delete(code);
+        setKeyState(code, false);
+      });
+    });
+
+    window.addEventListener("pagehide", saveCurrentSession);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") saveCurrentSession();
+    });
+
+    async function start() {
+      try {
+        const go = new Go();
+        const response = await fetch("main.wasm");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const bytes = await response.arrayBuffer();
+        const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
+        go.run(instance).catch((error) => window.setNESRuntimeError(error.message));
+
+        while (typeof window.loadNESROM !== "function" ||
+               typeof window.unloadNESROM !== "function" ||
+               !document.querySelector("canvas")) {
+          await new Promise(requestAnimationFrame);
+        }
+
+        document.body.dataset.runtime = "ready";
+        runtimeLabel.textContent = "Emulator ready";
+        applyAudioSetting();
+        applyDisplaySettings();
+        setLoadersDisabled(false);
+        setStatus("");
+      } catch (error) {
+        document.body.dataset.runtime = "error";
+        runtimeLabel.textContent = "Emulator unavailable";
+        setLoadersDisabled(true);
+        setStatus(`Could not start Go WebAssembly: ${error.message}`, "error");
+      }
+    }
+
+    loadBundledROMCatalog();
+    start();
+  </script>
+</body>
+</html>
